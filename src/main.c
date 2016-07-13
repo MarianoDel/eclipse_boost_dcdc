@@ -57,31 +57,42 @@ volatile unsigned char secs = 0;
 volatile unsigned short minutes = 0;
 
 //------- de los PID ---------
-#define KNUM	7			//ojo no pasar los 65536
-#define KDEN	10
+#define PID_LARGO
+#ifdef PID_LARGO
+						//todos se dividen por 32768
+//#define KPV	32768		// 1
+#define KPV	49152		// 1.5
+//#define KPV	65152		// 1.9 da OK pero casi inestable
+//#define KIV	1024		// 0.03125
+#define KIV	3048		// 0.0625
+
+#define KDV	0			// 0
+
+
+#define K1V (KPV + KIV + KDV)
+#define K2V (KPV + KDV + KDV)
+#define K3V (KDV)
+#endif
+
+
 #define SP_VOUT		860			//Vout_Sense mide = Vout / 13
-//#define SP		837			//Vout = 3.3 * 13 * SP / 1024
+								//Vout = 3.3 * 13 * SP / 1024
 
-#define KPNUM	25			//ojo no pasar los 32768
-#define KPDEN	100
+#define DMAX	717				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
 
-#define KDNUM	2			//ojo no pasar los 32768
-#define KDDEN	1
+#define MAX_I	78
+//#define MAX_I	74				//modificacion 13-07-16
+//								//Iout_Sense mide = Iout * 0.33
+//								//Iout = 3.3 * MAX_I / (0.33 * 1024)
 
-#define DMAX	717			//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
-//#define DMAX	100			//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
-
-#define MAX_I	74			//modificacion 13-07-16
-							//Iout_Sense mide = Iout * 0.33
-							//Iout = 3.3 * MAX_I / (0.33 * 1024)
 
 #define MAX_I_MOSFET	193		//modificacion 13-07-16
 								//I_Sense arriba de 620mV empieza a saturar la bobina
 
-#define IDLE	0
-#define LOOK_FOR_BREAK	1
-#define LOOK_FOR_MARK	2
-#define LOOK_FOR_START	3
+#define MIN_VIN			337		//modificacion 13-07-16
+								//Vin_Sense debajo de 2.39V corta @22V entrada 742
+								//Vin_Sense debajo de 1.09V corta @10V entrada 337
+
 
 //--- FUNCIONES DEL MODULO ---//
 void TimingDelay_Decrement(void);
@@ -117,6 +128,15 @@ int main(void)
 	short val_dz = 0;
 	short val_dz1 = 0;
 	short d = 0;
+
+#ifdef PID_LARGO
+	short error_z1 = 0;
+	short error_z2 = 0;
+
+	short val_k1 = 0;
+	short val_k2 = 0;
+	short val_k3 = 0;
+#endif
 //	unsigned char last_main_overload  = 0;
 //	unsigned char last_function;
 //	unsigned char last_program, last_program_deep;
@@ -169,7 +189,7 @@ int main(void)
 		if (seq_ready)
 		{
 			//reviso el tope de corriente del mosfet
-			if (I_Sense > MAX_I_MOSFET)
+			if ((I_Sense > MAX_I_MOSFET) || (Vin_Sense < MIN_VIN))
 			{
 				//corto el ciclo
 				d = 0;
@@ -177,7 +197,7 @@ int main(void)
 			else
 			{
 				//VEO SI USO LAZO V O I
-				if (Iout_Sense < MAX_I)
+				if (Vout_Sense > SP_VOUT)
 				{
 					//LAZO V
 					error = SP_VOUT - Vout_Sense;
@@ -209,15 +229,57 @@ int main(void)
 					LED_ON;
 					error = MAX_I - Iout_Sense;	//340 es 1V en adc
 
-					//proporcional
-					acc = 27852 * error;		//0.85
+#ifdef PID_LARGO
+					acc = K1V * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
+					val_k1 = acc >> 15;
+
+					//K2
+					acc = K2V * error_z1;		//K2 = no llega pruebo con 1
+					val_k2 = acc >> 15;			//si es mas grande que K1 + K3 no lo deja arrancar
+
+					//K3
+					acc = K3V * error_z2;		//K3 = 0.4
+					val_k3 = acc >> 15;
+
+					d = d + val_k1 - val_k2 + val_k3;
+#else
+					//proporcional (INTEGRAL REALMENTE)
+//					acc = 27852 * error;		//0.85
+					//acc = 8192 * error;		//0.25
+					//acc = 4096 * error;		//0.125
+					//acc = 2048 * error;			//0.0625
+					acc = 1024 * error;			//0.03125
+					//acc = 12288 * error;		//0.375
+//					acc = 24576 * error;		//0.75
 					val_p = acc >> 15;
 
-					d = d + val_p;
+//					d = d + val_p;
+//					if (d < 0)
+//						d = 0;
+//					else if (d > DMAX)
+//						d = DMAX;
+
+					//derivativo
+					//val_d = KDNUM * error;
+					//val_d = val_d / KDDEN;
+					//val_dz = val_d;
+					acc = 65536 * error;
+					val_dz = acc >> 15;
+					val_d = val_dz - val_dz1;
+					val_dz1 = val_dz;
+
+					d = d + val_p + val_d;
+#endif
 					if (d < 0)
 						d = 0;
 					else if (d > DMAX)
 						d = DMAX;
+
+#ifdef PID_LARGO
+					//Update variables PID
+					error_z2 = error_z1;
+					error_z1 = error;
+#endif
 				}
 			}
 
@@ -284,6 +346,7 @@ void TimingDelay_Decrement(void)
 	}
 	*/
 }
+
 
 
 

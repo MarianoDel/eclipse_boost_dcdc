@@ -23,9 +23,9 @@
 //GPIOA pin8
 //GPIOA pin9
 //GPIOA pin10
-#define LED ((GPIOA->ODR & 0x0040) != 0)
-#define LED_ON	GPIOA->BSRR = 0x00000040
-#define LED_OFF GPIOA->BSRR = 0x00400000
+#define LED ((GPIOA->ODR & 0x0400) != 0)
+#define LED_ON	GPIOA->BSRR = 0x00000400
+#define LED_OFF GPIOA->BSRR = 0x04000000
 
 //GPIOA pin11
 //GPIOA pin12
