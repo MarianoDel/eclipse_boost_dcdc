@@ -1,0 +1,6 @@
+eclipse.preferences.version=1
+environment/project/cdt.managedbuild.config.gnu.cross.exe.debug.708749749/PATH/delimiter=;
+environment/project/cdt.managedbuild.config.gnu.cross.exe.debug.708749749/PATH/operation=replace
+environment/project/cdt.managedbuild.config.gnu.cross.exe.debug.708749749/PATH/value=C\:\\Program Files (x86)\\GNU Tools ARM Embedded\\4.7 2013q2\\bin;C\:\\Program Files\\CodeSourcery\\Sourcery G++ Lite\\bin;
+environment/project/cdt.managedbuild.config.gnu.cross.exe.debug.708749749/append=true
+environment/project/cdt.managedbuild.config.gnu.cross.exe.debug.708749749/appendContributed=true
