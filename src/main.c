@@ -62,13 +62,13 @@ volatile int acc = 0;
 #define PID_LARGO
 #ifdef PID_LARGO
 						//todos se dividen por 32768
-#define KPV	49152		// 1.5
-#define KIV	3048		// I=0.0625 y P=1.5 una placa ok y la otra no
+//#define KPV	49152		// 1.5
+//#define KIV	3048		// I=0.0625 y P=1.5 una placa ok y la otra no
 //#define KIV	1024		// I=0.0625 y P=1.5 una placa ok y la otra no
 
 						//todos se dividen por 128
-//#define KPV	1024
-//#define KIV	6		//
+#define KPV	512			//	4
+#define KIV	64			//	1/64 = 0.0156
 #define KDV	0			// 0
 
 
@@ -83,7 +83,7 @@ volatile int acc = 0;
 
 #define DMAX	717				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
 
-#define MAX_I	78
+#define MAX_I	72
 //#define MAX_I	74				//modificacion 13-07-16
 //								//Iout_Sense mide = Iout * 0.33
 //								//Iout = 3.3 * MAX_I / (0.33 * 1024)
@@ -140,6 +140,8 @@ int main(void)
 	short val_k2 = 0;
 	short val_k3 = 0;
 #endif
+	unsigned char undersampling = 0;
+
 //	unsigned char last_main_overload  = 0;
 //	unsigned char last_function;
 //	unsigned char last_program, last_program_deep;
@@ -230,62 +232,36 @@ int main(void)
 				{
 					//LAZO I
 					LED_ON;
-					error = MAX_I - Iout_Sense;	//340 es 1V en adc
+					undersampling--;
+					if (!undersampling)
+					{
+						undersampling = 10;
+						error = MAX_I - Iout_Sense;	//340 es 1V en adc
 
-#ifdef PID_LARGO
-					acc = K1V * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
-					//val_k1 = acc >> 7;
-					val_k1 = acc >> 15;
+						acc = K1V * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
+						val_k1 = acc >> 7;
+						//val_k1 = acc >> 15;
 
-					//K2
-					acc = K2V * error_z1;		//K2 = no llega pruebo con 1
-					//val_k2 = acc >> 7;			//si es mas grande que K1 + K3 no lo deja arrancar
-					val_k2 = acc >> 15;
+						//K2
+						acc = K2V * error_z1;		//K2 = no llega pruebo con 1
+						val_k2 = acc >> 7;			//si es mas grande que K1 + K3 no lo deja arrancar
+						//val_k2 = acc >> 15;
 
-					//K3
-					acc = K3V * error_z2;		//K3 = 0.4
-					//val_k3 = acc >> 7;
-					val_k3 = acc >> 15;
+						//K3
+						acc = K3V * error_z2;		//K3 = 0.4
+						val_k3 = acc >> 7;
+						//val_k3 = acc >> 15;
 
-					d = d + val_k1 - val_k2 + val_k3;
-#else
-					//proporcional (INTEGRAL REALMENTE)
-//					acc = 27852 * error;		//0.85
-					//acc = 8192 * error;		//0.25
-					//acc = 4096 * error;		//0.125
-					//acc = 2048 * error;			//0.0625
-					acc = 1024 * error;			//0.03125
-					//acc = 12288 * error;		//0.375
-//					acc = 24576 * error;		//0.75
-					val_p = acc >> 15;
+						d = d + val_k1 - val_k2 + val_k3;
+						if (d < 0)
+							d = 0;
+						else if (d > DMAX)
+							d = DMAX;
 
-//					d = d + val_p;
-//					if (d < 0)
-//						d = 0;
-//					else if (d > DMAX)
-//						d = DMAX;
-
-					//derivativo
-					//val_d = KDNUM * error;
-					//val_d = val_d / KDDEN;
-					//val_dz = val_d;
-					acc = 65536 * error;
-					val_dz = acc >> 15;
-					val_d = val_dz - val_dz1;
-					val_dz1 = val_dz;
-
-					d = d + val_p + val_d;
-#endif
-					if (d < 0)
-						d = 0;
-					else if (d > DMAX)
-						d = DMAX;
-
-#ifdef PID_LARGO
-					//Update variables PID
-					error_z2 = error_z1;
-					error_z1 = error;
-#endif
+						//Update variables PID
+						error_z2 = error_z1;
+						error_z1 = error;
+					}
 				}
 			}
 
