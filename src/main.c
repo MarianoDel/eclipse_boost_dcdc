@@ -57,15 +57,18 @@ volatile unsigned char secs = 0;
 volatile unsigned short minutes = 0;
 
 //------- de los PID ---------
+volatile int acc = 0;
+
 #define PID_LARGO
 #ifdef PID_LARGO
 						//todos se dividen por 32768
-//#define KPV	32768		// 1
 #define KPV	49152		// 1.5
-//#define KPV	65152		// 1.9 da OK pero casi inestable
-//#define KIV	1024		// 0.03125
-#define KIV	3048		// 0.0625
+#define KIV	3048		// I=0.0625 y P=1.5 una placa ok y la otra no
+//#define KIV	1024		// I=0.0625 y P=1.5 una placa ok y la otra no
 
+						//todos se dividen por 128
+//#define KPV	1024
+//#define KIV	6		//
 #define KDV	0			// 0
 
 
@@ -89,7 +92,7 @@ volatile unsigned short minutes = 0;
 #define MAX_I_MOSFET	193		//modificacion 13-07-16
 								//I_Sense arriba de 620mV empieza a saturar la bobina
 
-#define MIN_VIN			337		//modificacion 13-07-16
+#define MIN_VIN			300		//modificacion 13-07-16
 								//Vin_Sense debajo de 2.39V corta @22V entrada 742
 								//Vin_Sense debajo de 1.09V corta @10V entrada 337
 
@@ -121,7 +124,7 @@ int main(void)
 {
 	unsigned char i;
 	unsigned short medida = 0;
-	int acc = 0;
+	//int acc = 0;
 	short error = 0;
 	short val_p = 0;
 	short val_d = 0;
@@ -231,14 +234,17 @@ int main(void)
 
 #ifdef PID_LARGO
 					acc = K1V * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
+					//val_k1 = acc >> 7;
 					val_k1 = acc >> 15;
 
 					//K2
 					acc = K2V * error_z1;		//K2 = no llega pruebo con 1
-					val_k2 = acc >> 15;			//si es mas grande que K1 + K3 no lo deja arrancar
+					//val_k2 = acc >> 7;			//si es mas grande que K1 + K3 no lo deja arrancar
+					val_k2 = acc >> 15;
 
 					//K3
 					acc = K3V * error_z2;		//K3 = 0.4
+					//val_k3 = acc >> 7;
 					val_k3 = acc >> 15;
 
 					d = d + val_k1 - val_k2 + val_k3;
