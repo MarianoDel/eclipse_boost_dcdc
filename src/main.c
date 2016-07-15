@@ -63,7 +63,7 @@ volatile int acc = 0;
 #ifdef PID_LARGO
 						//todos se dividen por 32768
 //#define KPV	49152		// 1.5
-//#define KIV	3048		// I=0.0625 y P=1.5 una placa ok y la otra no
+//#define KIV	3048		// I=0.093 y P=1.5 una placa ok y la otra no
 //#define KIV	1024		// I=0.0625 y P=1.5 una placa ok y la otra no
 
 						//todos se dividen por 128
