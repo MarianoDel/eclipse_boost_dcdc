@@ -12,7 +12,7 @@
 
 
 //--- VARIABLES EXTERNAS ---//
-extern volatile unsigned short adc_ch [4];
+extern volatile unsigned short adc_ch [];
 
 extern volatile unsigned char seq_ready;
 
@@ -96,11 +96,23 @@ void AdcConfig (void)
 	//set channel selection siempre convierte creciente, termina con el canal mas alto de la secuencia
 	//ADC1->CHSELR |= ADC_Channel_0 | ADC_Channel_1 | ADC_Channel_2;
 	//ADC1->CHSELR |= ADC_Channel_1 | ADC_Channel_2;
+#ifdef BOOST_CONVENCIONAL
 	ADC1->CHSELR |= ADC_Channel_0 | ADC_Channel_1 | ADC_Channel_2 | ADC_Channel_9;		//modificado 13-07-16
 																					//Iout_Sense 	CH0
 																					//Vin_Sense		CH1
 																					//I_Sense		CH2
 																					//Vout_Sense 	CH9
+#endif
+
+#ifdef BOOST_WITH_CONTROL
+	ADC1->CHSELR |= ADC_Channel_0 | ADC_Channel_1 | ADC_Channel_2;		//modificado 20-07-16
+	ADC1->CHSELR |= ADC_Channel_4 | ADC_Channel_5 | ADC_Channel_6;		//Vin_Sense		CH0
+																		//Iout_Sense 	CH1
+																		//I_Sense		CH2
+																		//One_Ten_Sense	CH4
+																		//One_Ten_Pote 	CH5
+																		//Vout_Sense 	CH6
+#endif
 
 #ifdef ADC_WITH_INT
 	//set interrupts
@@ -126,6 +138,7 @@ void ADC1_COMP_IRQHandler (void)
 {
 	if (ADC1->ISR & ADC_IT_EOC)
 	{
+#ifdef BOOST_CONVENCIONAL
 		if (ADC1->ISR & ADC_IT_EOSEQ)	//seguro que es channel9
 		{
 			p_channel = &adc_ch[3];
@@ -139,6 +152,23 @@ void ADC1_COMP_IRQHandler (void)
 			if (p_channel < &adc_ch[3])
 				p_channel++;
 		}
+#endif
+
+#ifdef BOOST_WITH_CONTROL
+		if (ADC1->ISR & ADC_IT_EOSEQ)	//seguro que es channel6
+		{
+			p_channel = &adc_ch[5];
+			*p_channel = ADC1->DR;
+			p_channel = &adc_ch[0];
+			seq_ready = 1;
+		}
+		else
+		{
+			*p_channel = ADC1->DR;		//
+			if (p_channel < &adc_ch[5])
+				p_channel++;
+		}
+#endif
 
 		//clear pending
 		ADC1->ISR |= ADC_IT_EOC | ADC_IT_EOSEQ;

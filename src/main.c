@@ -33,14 +33,25 @@ volatile unsigned char timer_1seg = 0;
 volatile unsigned short timer_led_comm = 0;
 volatile unsigned short wait_ms_var = 0;
 
-volatile unsigned short adc_ch[4];
+volatile unsigned short adc_ch[6];
 
 volatile unsigned char seq_ready = 0;
 
+#ifdef BOOST_CONVENCIONAL
 #define Iout_Sense	adc_ch[0]
 #define Vin_Sense	adc_ch[1]
 #define I_Sense		adc_ch[2]
 #define Vout_Sense	adc_ch[3]
+#endif
+
+#ifdef BOOST_WITH_CONTROL
+#define Vin_Sense		adc_ch[0]
+#define Iout_Sense		adc_ch[1]
+#define I_Sense			adc_ch[2]
+#define One_Ten_Sense	adc_ch[3]
+#define One_Ten_Pote	adc_ch[4]
+#define Vout_Sense		adc_ch[5]
+#endif
 
 //--- VARIABLES GLOBALES ---//
 
@@ -266,7 +277,7 @@ int main(void)
 			}
 
 			Update_TIM3_CH1 (d);
-			Update_TIM3_CH2 (Iout_Sense);	//muestro en pata PA7 el sensado de Iout
+			//Update_TIM3_CH2 (Iout_Sense);	//muestro en pata PA7 el sensado de Iout
 
 			seq_ready = 0;
 			LED_OFF;

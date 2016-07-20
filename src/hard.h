@@ -8,7 +8,11 @@
 #ifndef HARD_H_
 #define HARD_H_
 
+//-------- Board Configuration -----------------------//
+//#define BOOST_CONVENCIONAL	//placa anterior del tamaño de la F12V5A ultimo prog 13-07-16
+#define BOOST_WITH_CONTROL		//placa nueva con control 1 a 10V o pote 20-07-16
 
+#ifdef BOOST_CONVENCIONAL
 //GPIOA pin0
 //GPIOA pin1
 //GPIOA pin2		//Analog Inputs
@@ -42,7 +46,51 @@
 //GPIOB pin5
 //GPIOB pin6
 //GPIOB pin7
+#endif
 
+#ifdef BOOST_WITH_CONTROL
+//GPIOA pin0
+//GPIOA pin1
+//GPIOA pin2		//Analog Inputs
+
+//GPIOA pin3
+
+//GPIOA pin4
+//GPIOA pin5
+//GPIOA pin6		//Analog Inputs
+
+//GPIOA pin7
+//GPIOA pin8
+//GPIOA pin9
+//GPIOA pin10
+//GPIOA pin11
+//GPIOA pin12
+//GPIOA pin13
+//GPIOA pin14
+//GPIOA pin15
+
+//GPIOB pin0
+#define LED ((GPIOB->ODR & 0x0001) != 0)
+#define LED_ON	GPIOB->BSRR = 0x00000001
+#define LED_OFF GPIOB->BSRR = 0x00010000
+
+//GPIOB pin1
+#define JUMPER_CONF ((GPIOB->IDR & 0x0002) == 0)
+
+//GPIOB pin3
+
+//GPIOB pin4	//TIM3_CH1 para control PWM
+
+//GPIOB pin5
+#define MOSFET ((GPIOB->ODR & 0x0020) != 0)
+#define MOSFET_ON	GPIOB->BSRR = 0x00000020
+#define MOSFET_OFF GPIOB->BSRR = 0x00200000
+
+//GPIOB pin6
+//GPIOB pin7
+
+
+#endif
 
 //ESTADOS DEL PROGRAMA PRINCIPAL
 #define MAIN_INIT					0
