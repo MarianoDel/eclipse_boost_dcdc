@@ -82,11 +82,13 @@
 //GPIOB pin4	//TIM3_CH1 para control PWM
 
 //GPIOB pin5
-#define MOSFET ((GPIOB->ODR & 0x0020) != 0)
-#define MOSFET_ON	GPIOB->BSRR = 0x00000020
-#define MOSFET_OFF GPIOB->BSRR = 0x00200000
 
 //GPIOB pin6
+#define MOSFET ((GPIOB->ODR & 0x0040) != 0)
+#define MOSFET_ON	GPIOB->BSRR = 0x00000040
+#define MOSFET_OFF GPIOB->BSRR = 0x00400000
+
+
 //GPIOB pin7
 
 

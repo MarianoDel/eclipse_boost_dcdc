@@ -19,6 +19,8 @@
 #include "stm32f0xx_misc.h"
 #include "stm32f0xx_exti.h"
 
+#include "hard.h"
+
 
 
 //--- Private typedef ---//
@@ -67,7 +69,7 @@ void GPIO_Config (void)
 	//10: Pull-down
 	//11: Reserved
 
-
+#ifdef BOOST_CONVENCIONAL
 #ifdef GPIOA_ENABLE
 
 	//--- GPIO A ---//
@@ -124,6 +126,67 @@ void GPIO_Config (void)
 	GPIOB->PUPDR = temp;
 
 
+#endif
+#endif
+
+#ifdef BOOST_WITH_CONTROL
+#ifdef GPIOA_ENABLE
+
+	//--- GPIO A ---//
+	if (!GPIOA_CLK)
+		GPIOA_CLK_ON;
+
+	temp = GPIOA->MODER;	//2 bits por pin
+	temp &= 0xFFFFC0C0;		//PA0 PA1 PA2 (analog input); PA4 PA5 PA6 (analog input);
+	temp |= 0x00007F7F;
+	GPIOA->MODER = temp;
+
+	temp = GPIOA->OTYPER;	//1 bit por pin
+	temp &= 0xFFFFFFFF;
+	temp |= 0x00000000;
+	GPIOA->OTYPER = temp;
+
+	temp = GPIOA->OSPEEDR;	//2 bits por pin
+	temp &= 0xFFFFFFFF;
+	temp |= 0x00000000;
+	GPIOA->OSPEEDR = temp;
+
+	temp = GPIOA->PUPDR;	//2 bits por pin
+	temp &= 0xFFFFFFFF;
+	temp |= 0x00000000;
+	GPIOA->PUPDR = temp;
+
+
+#endif
+
+#ifdef GPIOB_ENABLE
+
+	//--- GPIO B ---//
+	if (!GPIOB_CLK)
+		GPIOB_CLK_ON;
+
+	temp = GPIOB->MODER;	//2 bits por pin
+	temp &= 0xFFFFCCF0;		//PB0 out; PB1 input; PB4 alternative; PB6 out
+	temp |= 0x00001201;
+	GPIOB->MODER = temp;
+
+	temp = GPIOB->OTYPER;	//1 bit por pin
+	temp &= 0xFFFFFFEF;		//PB4 open drain
+	temp |= 0x00000010;
+	GPIOB->OTYPER = temp;
+
+	temp = GPIOB->OSPEEDR;	//2 bits por pin
+	temp &= 0xFFFFCFFC;
+	temp |= 0x00000000;		//PB0 PB6 low speed
+	GPIOB->OSPEEDR = temp;
+
+	temp = GPIOB->PUPDR;	//2 bits por pin
+	temp &= 0xFFFFFFF3;		//PB1 pull up
+	temp |= 0x00000004;
+	GPIOB->PUPDR = temp;
+
+
+#endif
 #endif
 
 #ifdef GPIOF_ENABLE

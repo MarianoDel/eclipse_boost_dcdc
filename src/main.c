@@ -71,12 +71,14 @@ volatile unsigned short minutes = 0;
 volatile int acc = 0;
 
 #define PID_LARGO
+
 #ifdef PID_LARGO
 						//todos se dividen por 32768
 //#define KPV	49152		// 1.5
 //#define KIV	3048		// I=0.093 y P=1.5 una placa ok y la otra no
 //#define KIV	1024		// I=0.0625 y P=1.5 una placa ok y la otra no
 
+//if ((defined BOOST_CONVENCIONAL) || (defined BOOST_WITH_CONTROL))
 						//todos se dividen por 128
 #define KPV	512			//	4
 #define KIV	64			//	1/64 = 0.0156
@@ -89,6 +91,8 @@ volatile int acc = 0;
 #endif
 
 
+
+#ifdef BOOST_CONVENCIONAL
 #define SP_VOUT		860			//Vout_Sense mide = Vout / 13
 								//Vout = 3.3 * 13 * SP / 1024
 
@@ -106,7 +110,26 @@ volatile int acc = 0;
 #define MIN_VIN			300		//modificacion 13-07-16
 								//Vin_Sense debajo de 2.39V corta @22V entrada 742
 								//Vin_Sense debajo de 1.09V corta @10V entrada 337
+#endif
 
+#ifdef BOOST_WITH_CONTROL
+#define SP_VOUT		955			//Vout_Sense mide = Vout / 13
+								//Vout = 3.3 * 13 * SP / 1024
+
+#define DMAX	800				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
+
+#define MAX_I	305
+//								//Iout_Sense mide = Iout * 0.33
+//								//Iout = 3.3 * MAX_I / (0.33 * 1024)
+
+
+#define MAX_I_MOSFET	193		//modificacion 13-07-16
+								//I_Sense arriba de 620mV empieza a saturar la bobina
+
+#define MIN_VIN			300		//modificacion 13-07-16
+								//Vin_Sense debajo de 2.39V corta @22V entrada 742
+								//Vin_Sense debajo de 1.09V corta @10V entrada 337
+#endif
 
 //--- FUNCIONES DEL MODULO ---//
 void TimingDelay_Decrement(void);
@@ -198,6 +221,22 @@ int main(void)
 	AdcConfig();
 	ADC1->CR |= ADC_CR_ADSTART;
 
+
+	//pruebo adc contra pwm
+//	while (1)
+//	{
+//		//PROGRAMA DE PRODUCCION
+//		if (seq_ready)
+//		{
+//			seq_ready = 0;
+//			Update_TIM3_CH1 (One_Ten_Pote);
+//		}
+//	}
+
+	MOSFET_ON;
+	Update_TIM3_CH1 (0);
+	Wait_ms(2);
+
 	//--- Main loop ---//
 	while(1)
 	{
@@ -247,7 +286,14 @@ int main(void)
 					if (!undersampling)
 					{
 						undersampling = 10;
-						error = MAX_I - Iout_Sense;	//340 es 1V en adc
+						//con control por pote
+						medida = MAX_I * One_Ten_Pote;
+						medida >>= 10;
+						if (medida < 30)
+							medida = 30;
+						error = medida - Iout_Sense;	//340 es 1V en adc
+//						error = MAX_I - Iout_Sense;	//340 es 1V en adc
+
 
 						acc = K1V * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
 						val_k1 = acc >> 7;
