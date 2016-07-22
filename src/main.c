@@ -58,8 +58,6 @@ unsigned short v_pote_samples [32];
 unsigned short * p_pote;
 unsigned int pote_sumation;
 
-#define FAST_FREQ	0
-#define LOW_FREQ	1
 #endif
 
 //--- VARIABLES GLOBALES ---//
@@ -89,8 +87,8 @@ volatile int acc = 0;
 
 //if ((defined BOOST_CONVENCIONAL) || (defined BOOST_WITH_CONTROL))
 						//todos se dividen por 128
-#define KPV	512			//	4
-#define KIV	64			//	1/64 = 0.0156
+#define KPV	128			//	4
+#define KIV	16			//	64 = 0.0156 32, 16
 #define KDV	0			// 0
 
 
@@ -174,7 +172,6 @@ int main(void)
 	short val_dz = 0;
 	short val_dz1 = 0;
 	short d = 0;
-	unsigned char folding_state = FAST_FREQ;
 
 #ifdef PID_LARGO
 	short error_z1 = 0;
@@ -305,38 +302,6 @@ int main(void)
 					{
 						undersampling = 10;
 
-						switch (folding_state)
-						{
-							case FAST_FREQ:		//me fijo si tengo que cambiar a LOW
-								if (Iout_Sense < 52)
-								{
-									folding_state = LOW_FREQ;
-									//voy a la mitad de la frecuencia
-									d <<= 1;
-									Update_TIM3_Freq(2047);
-									Update_TIM3_CH1 (d);
-									error_z2 = 0;
-									error_z1 = 0;
-								}
-								break;
-
-							case LOW_FREQ:
-								if (Iout_Sense > 62)
-								{
-									folding_state = FAST_FREQ;
-									//voy al doble de freq
-									d >>= 1;
-									Update_TIM3_Freq(1023);
-									Update_TIM3_CH1 (d);
-									error_z2 = 0;
-									error_z1 = 0;
-								}
-								break;
-
-							default:
-								folding_state = FAST_FREQ;
-								break;
-						}
 
 						//con control por pote
 						//medida = MAX_I * One_Ten_Pote;	//sin filtro
@@ -349,19 +314,39 @@ int main(void)
 //						error = 24 - Iout_Sense;	//en 55mA esta inestable
 
 
-						acc = K1V * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
-						val_k1 = acc >> 7;
-						//val_k1 = acc >> 15;
+//						if (Iout_Sense > 62)
+//						{
+							acc = K1V * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
+							val_k1 = acc >> 7;
+							//val_k1 = acc >> 15;
 
-						//K2
-						acc = K2V * error_z1;		//K2 = no llega pruebo con 1
-						val_k2 = acc >> 7;			//si es mas grande que K1 + K3 no lo deja arrancar
-						//val_k2 = acc >> 15;
+							//K2
+							acc = K2V * error_z1;		//K2 = no llega pruebo con 1
+							val_k2 = acc >> 7;			//si es mas grande que K1 + K3 no lo deja arrancar
+							//val_k2 = acc >> 15;
 
-						//K3
-						acc = K3V * error_z2;		//K3 = 0.4
-						val_k3 = acc >> 7;
-						//val_k3 = acc >> 15;
+							//K3
+							acc = K3V * error_z2;		//K3 = 0.4
+							val_k3 = acc >> 7;
+							//val_k3 = acc >> 15;
+//						}
+//						//else if (Iout_Sense < 52)
+//						else
+//						{
+//							acc = 513 * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
+//							val_k1 = acc >> 7;
+//							//val_k1 = acc >> 15;
+//
+//							//K2
+//							acc = 512 * error_z1;		//K2 = no llega pruebo con 1
+//							val_k2 = acc >> 7;			//si es mas grande que K1 + K3 no lo deja arrancar
+//							//val_k2 = acc >> 15;
+//
+//							//K3
+//							acc = K3V * error_z2;		//K3 = 0.4
+//							val_k3 = acc >> 7;
+//							//val_k3 = acc >> 15;
+//						}
 
 						d = d + val_k1 - val_k2 + val_k3;
 						if (d < 0)
