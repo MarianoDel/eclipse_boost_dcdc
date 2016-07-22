@@ -57,6 +57,9 @@ volatile unsigned char seq_ready = 0;
 unsigned short v_pote_samples [32];
 unsigned short * p_pote;
 unsigned int pote_sumation;
+
+#define FAST_FREQ	0
+#define LOW_FREQ	1
 #endif
 
 //--- VARIABLES GLOBALES ---//
@@ -171,6 +174,7 @@ int main(void)
 	short val_dz = 0;
 	short val_dz1 = 0;
 	short d = 0;
+	unsigned char folding_state = FAST_FREQ;
 
 #ifdef PID_LARGO
 	short error_z1 = 0;
@@ -300,6 +304,40 @@ int main(void)
 					if (!undersampling)
 					{
 						undersampling = 10;
+
+						switch (folding_state)
+						{
+							case FAST_FREQ:		//me fijo si tengo que cambiar a LOW
+								if (Iout_Sense < 52)
+								{
+									folding_state = LOW_FREQ;
+									//voy a la mitad de la frecuencia
+									d <<= 1;
+									Update_TIM3_Freq(2047);
+									Update_TIM3_CH1 (d);
+									error_z2 = 0;
+									error_z1 = 0;
+								}
+								break;
+
+							case LOW_FREQ:
+								if (Iout_Sense > 62)
+								{
+									folding_state = FAST_FREQ;
+									//voy al doble de freq
+									d >>= 1;
+									Update_TIM3_Freq(1023);
+									Update_TIM3_CH1 (d);
+									error_z2 = 0;
+									error_z1 = 0;
+								}
+								break;
+
+							default:
+								folding_state = FAST_FREQ;
+								break;
+						}
+
 						//con control por pote
 						//medida = MAX_I * One_Ten_Pote;	//sin filtro
 						medida = MAX_I * pote_value;		//con filtro
@@ -328,8 +366,8 @@ int main(void)
 						d = d + val_k1 - val_k2 + val_k3;
 						if (d < 0)
 							d = 0;
-						else if (d > DMAX)
-							d = DMAX;
+						else if (d > DMAX)		//no me preocupo si estoy con folding
+								d = DMAX;		//porque d deberia ser chico
 
 						//Update variables PID
 						error_z2 = error_z1;

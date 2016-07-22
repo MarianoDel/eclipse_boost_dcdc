@@ -37,6 +37,11 @@ void Update_TIM3_CH1 (unsigned short a)
 	TIM3->CCR1 = a;
 }
 
+void Update_TIM3_Freq (unsigned short a)
+{
+	TIM3->ARR = a;
+}
+
 void Update_TIM3_CH2 (unsigned short a)
 {
 	TIM3->CCR2 = a;
@@ -136,7 +141,7 @@ void TIM_3_Init (void)
 	TIM3->CCER |= TIM_CCER_CC1P | TIM_CCER_CC1E;	//CH1 enable on pin active low;
 #endif
 
-	TIM3->ARR = 1024;	//freq 46.8KHz
+	TIM3->ARR = 1023;	//freq 46.8KHz
 	TIM3->CNT = 0;
 	TIM3->PSC = 0;
 	//TIM3->EGR = TIM_EGR_UG;	//generate event
@@ -163,7 +168,7 @@ void TIM_3_Init (void)
 	//Configuracion Pines
 	//Alternate Fuction
 	GPIOB->AFR[0] = 0x00010000;	//PB4 -> AF1;
-	TIM3->CCR1 = 50;
+	TIM3->CCR1 = 1;
 #endif
 
 }
