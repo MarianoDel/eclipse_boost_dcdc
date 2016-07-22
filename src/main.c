@@ -20,6 +20,7 @@
 #include "stm32f0x_tim.h"
 #include "stm32f0xx_it.h"
 #include "adc.h"
+#include "dsp.h"
 
 //#include <stdio.h>
 //#include <string.h>
@@ -51,6 +52,11 @@ volatile unsigned char seq_ready = 0;
 #define One_Ten_Sense	adc_ch[3]
 #define One_Ten_Pote	adc_ch[4]
 #define Vout_Sense		adc_ch[5]
+
+//----- para los filtros ------//
+unsigned short v_pote_samples [32];
+unsigned short * p_pote;
+unsigned int pote_sumation;
 #endif
 
 //--- VARIABLES GLOBALES ---//
@@ -157,8 +163,8 @@ unsigned short vpote [LARGO_FILTRO + 1];
 int main(void)
 {
 	unsigned char i;
-	unsigned short medida = 0;
-	//int acc = 0;
+	unsigned int medida = 0;
+	unsigned short pote_value;
 	short error = 0;
 	short val_p = 0;
 	short val_d = 0;
@@ -212,7 +218,6 @@ int main(void)
 
 
 	//TIM Configuration.
-	TIM_1_Init();
 	TIM_3_Init();
 
 	//--- COMIENZO PROGRAMA DE PRODUCCION
@@ -220,6 +225,12 @@ int main(void)
 	//ADC configuration.
 	AdcConfig();
 	ADC1->CR |= ADC_CR_ADSTART;
+
+	//Inicializo el o los filtros
+	//filtro pote
+	p_pote = &v_pote_samples [0];
+	pote_sumation = 0;
+	pote_value = 0;
 
 
 	//pruebo adc contra pwm
@@ -229,13 +240,16 @@ int main(void)
 //		if (seq_ready)
 //		{
 //			seq_ready = 0;
-//			Update_TIM3_CH1 (One_Ten_Pote);
+//			//pote_value = MAFilter32Circular (One_Ten_Pote, v_pote_samples, p_pote, &pote_sumation);
+//			pote_value = MAFilter32 (One_Ten_Pote, v_pote_samples);
+//			Update_TIM3_CH1 (pote_value);
 //		}
 //	}
 
 	MOSFET_ON;
 	Update_TIM3_CH1 (0);
-	Wait_ms(2);
+
+
 
 	//--- Main loop ---//
 	while(1)
@@ -287,12 +301,14 @@ int main(void)
 					{
 						undersampling = 10;
 						//con control por pote
-						medida = MAX_I * One_Ten_Pote;
+						//medida = MAX_I * One_Ten_Pote;	//sin filtro
+						medida = MAX_I * pote_value;		//con filtro
 						medida >>= 10;
-						if (medida < 30)
-							medida = 30;
+//						if (medida < 26)
+//							medida = 26;
 						error = medida - Iout_Sense;	//340 es 1V en adc
 //						error = MAX_I - Iout_Sense;	//340 es 1V en adc
+//						error = 24 - Iout_Sense;	//en 55mA esta inestable
 
 
 						acc = K1V * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
@@ -325,6 +341,9 @@ int main(void)
 			Update_TIM3_CH1 (d);
 			//Update_TIM3_CH2 (Iout_Sense);	//muestro en pata PA7 el sensado de Iout
 
+			//pote_value = MAFilter32Circular (One_Ten_Pote, v_pote_samples, p_pote, &pote_sumation);
+			//pote_value = MAFilter32 (One_Ten_Pote, v_pote_samples);
+			pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
 			seq_ready = 0;
 			LED_OFF;
 		}

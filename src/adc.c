@@ -84,8 +84,8 @@ void AdcConfig (void)
 	ADC1->CFGR2 = ADC_ClockMode_SynClkDiv4;
 
 	//set resolution & trigger
-	//ADC1->CFGR1 |= ADC_Resolution_10b | ADC_ExternalTrigConvEdge_Rising | ADC_ExternalTrigConv_T3_TRGO;
-	ADC1->CFGR1 |= ADC_Resolution_10b | ADC_ExternalTrigConvEdge_Rising | ADC_ExternalTrigConv_T1_TRGO;
+	ADC1->CFGR1 |= ADC_Resolution_10b | ADC_ExternalTrigConvEdge_Rising | ADC_ExternalTrigConv_T3_TRGO;
+	//ADC1->CFGR1 |= ADC_Resolution_10b | ADC_ExternalTrigConvEdge_Rising | ADC_ExternalTrigConv_T1_TRGO;
 	//ADC1->CFGR1 |= ADC_Resolution_10b | ADC_ExternalTrigConvEdge_Falling | ADC_ExternalTrigConv_T3_TRGO;
 
 	//set sampling time

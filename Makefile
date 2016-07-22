@@ -107,6 +107,7 @@ SRC += .\src\stm32f0x_gpio.c
 SRC += .\src\stm32f0x_tim.c
 #SRC += .\src\spi.c
 SRC += .\src\adc.c
+SRC += .\src\dsp.c
 #SRC += .\src\stm32f0x_uart.c
 #SRC += .\src\flash_program.c
 #SRC += .\src\programs_functions.c
