@@ -93,9 +93,12 @@ unsigned short MAFilter32 (unsigned short new_sample, unsigned short * vsample)
 //new_sample, p_vec_samples: vector donde se guardan todas las muestras
 //p_vector: puntero que recorre el vector de muestras, p_sum: puntero al valor de la sumatoria de muestras
 //devuelve resultado del filtro
-unsigned short MAFilter32Circular (unsigned short new_sample, unsigned short * p_vec_samples, unsigned short * p_vector, unsigned int * p_sum)
+unsigned short MAFilter32Circular (unsigned short new_sample, unsigned short * p_vec_samples, unsigned char * index, unsigned int * p_sum)
 {
 	unsigned int total_ma;
+	unsigned short * p_vector;
+
+	p_vector = (p_vec_samples + *index);
 
 	//agrego la nueva muestra al total guardado
 	total_ma = *p_sum + new_sample;
@@ -103,9 +106,15 @@ unsigned short MAFilter32Circular (unsigned short new_sample, unsigned short * p
 	//guardo el nuevo sample y actualizo el puntero
 	*p_vector = new_sample;
 	if (p_vector < (p_vec_samples + 32))
+	{
 		p_vector++;
+		*index += 1;
+	}
 	else
+	{
 		p_vector = p_vec_samples;
+		*index = 0;
+	}
 
 	//resto la muestra - 32 (es la apuntada por el puntero porque es circular)
 	total_ma -= *p_vector;

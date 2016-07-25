@@ -55,7 +55,7 @@ volatile unsigned char seq_ready = 0;
 
 //----- para los filtros ------//
 unsigned short v_pote_samples [32];
-unsigned short * p_pote;
+unsigned char v_pote_index;
 unsigned int pote_sumation;
 
 #endif
@@ -89,6 +89,8 @@ volatile int acc = 0;
 						//todos se dividen por 128
 #define KPV	128			//	4
 #define KIV	16			//	64 = 0.0156 32, 16
+//#define KPV	0			//	0
+//#define KIV	128			//	1
 #define KDV	0			// 0
 
 
@@ -126,6 +128,7 @@ volatile int acc = 0;
 #define DMAX	800				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
 
 #define MAX_I	305
+//#define MAX_I	153				//cuando uso Iot_Sense / 2
 //								//Iout_Sense mide = Iout * 0.33
 //								//Iout = 3.3 * MAX_I / (0.33 * 1024)
 
@@ -172,6 +175,7 @@ int main(void)
 	short val_dz = 0;
 	short val_dz1 = 0;
 	short d = 0;
+	short d_last = 0;
 
 #ifdef PID_LARGO
 	short error_z1 = 0;
@@ -229,7 +233,7 @@ int main(void)
 
 	//Inicializo el o los filtros
 	//filtro pote
-	p_pote = &v_pote_samples [0];
+	v_pote_index = 0;
 	pote_sumation = 0;
 	pote_value = 0;
 
@@ -241,8 +245,12 @@ int main(void)
 //		if (seq_ready)
 //		{
 //			seq_ready = 0;
+//			LED_ON;
 //			//pote_value = MAFilter32Circular (One_Ten_Pote, v_pote_samples, p_pote, &pote_sumation);
-//			pote_value = MAFilter32 (One_Ten_Pote, v_pote_samples);
+//			pote_value = MAFilter32Pote (One_Ten_Pote);	//esto tarda 5.4us
+//			//pote_value = MAFilter32 (One_Ten_Pote, v_pote_samples);	//esto tarda 32.4us
+//			//pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);		//esto tarda 8.1us
+//			LED_OFF;
 //			Update_TIM3_CH1 (pote_value);
 //		}
 //	}
@@ -300,15 +308,17 @@ int main(void)
 					undersampling--;
 					if (!undersampling)
 					{
-						undersampling = 10;
+						//undersampling = 10;		//funciona bien pero con saltos
+						undersampling = 20;		//funciona bien pero con saltos
 
 
 						//con control por pote
-						//medida = MAX_I * One_Ten_Pote;	//sin filtro
+//						medida = MAX_I * One_Ten_Pote;	//sin filtro
 						medida = MAX_I * pote_value;		//con filtro
 						medida >>= 10;
 //						if (medida < 26)
 //							medida = 26;
+//						Iout_Sense >>= 1;
 						error = medida - Iout_Sense;	//340 es 1V en adc
 //						error = MAX_I - Iout_Sense;	//340 es 1V en adc
 //						error = 24 - Iout_Sense;	//en 55mA esta inestable
@@ -361,12 +371,20 @@ int main(void)
 				}
 			}
 
+//			if (d != d_last)
+//			{
+//				Update_TIM3_CH1 (d);
+//				d_last = d;
+//			}
+			pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
 			Update_TIM3_CH1 (d);
+
 			//Update_TIM3_CH2 (Iout_Sense);	//muestro en pata PA7 el sensado de Iout
 
 			//pote_value = MAFilter32Circular (One_Ten_Pote, v_pote_samples, p_pote, &pote_sumation);
 			//pote_value = MAFilter32 (One_Ten_Pote, v_pote_samples);
-			pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
+			//pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
+			//pote_value = MAFilter32Pote (One_Ten_Pote);
 			seq_ready = 0;
 			LED_OFF;
 		}

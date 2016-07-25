@@ -152,8 +152,8 @@ void GPIO_Config (void)
 	GPIOA->OSPEEDR = temp;
 
 	temp = GPIOA->PUPDR;	//2 bits por pin
-	temp &= 0xFFFFFFFF;
-	temp |= 0x00000000;
+	temp &= 0xFFFFFFCF;		//PA2 pull down
+	temp |= 0x00000020;
 	GPIOA->PUPDR = temp;
 
 
