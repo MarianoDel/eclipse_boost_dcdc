@@ -84,9 +84,12 @@ void AdcConfig (void)
 	ADC1->CFGR2 = ADC_ClockMode_SynClkDiv4;
 
 	//set resolution & trigger
+#ifdef BUCK_BOOST_WITH_CONTROL
+	ADC1->CFGR1 |= ADC_Resolution_10b | ADC_ExternalTrigConvEdge_Rising | ADC_ExternalTrigConv_T1_TRGO;
+#endif
+#if ((defined BOOST_WITH_CONTROL) || (defined BOOST_CONVENCIONAL))
 	ADC1->CFGR1 |= ADC_Resolution_10b | ADC_ExternalTrigConvEdge_Rising | ADC_ExternalTrigConv_T3_TRGO;
-	//ADC1->CFGR1 |= ADC_Resolution_10b | ADC_ExternalTrigConvEdge_Rising | ADC_ExternalTrigConv_T1_TRGO;
-	//ADC1->CFGR1 |= ADC_Resolution_10b | ADC_ExternalTrigConvEdge_Falling | ADC_ExternalTrigConv_T3_TRGO;
+#endif
 
 	//set sampling time
 	ADC1->SMPR |= ADC_SampleTime_28_5Cycles;		//
@@ -109,6 +112,17 @@ void AdcConfig (void)
 	ADC1->CHSELR |= ADC_Channel_4 | ADC_Channel_5 | ADC_Channel_6;		//Vin_Sense		CH0
 																		//Iout_Sense 	CH1
 																		//I_Sense		CH2
+																		//One_Ten_Sense	CH4
+																		//One_Ten_Pote 	CH5
+																		//Vout_Sense 	CH6
+#endif
+
+#ifdef BUCK_BOOST_WITH_CONTROL
+	ADC1->CHSELR |= ADC_Channel_0 | ADC_Channel_1 | ADC_Channel_2;		//modificado 10-08-16
+	ADC1->CHSELR |= ADC_Channel_3 | ADC_Channel_4 | ADC_Channel_5;		//Vin_Sense		CH0
+	ADC1->CHSELR |= ADC_Channel_6;										//Iout_Sense 	CH1
+																		//Boost_Sense	CH2
+																		//Buck_Sense	CH3
 																		//One_Ten_Sense	CH4
 																		//One_Ten_Pote 	CH5
 																		//Vout_Sense 	CH6
@@ -138,6 +152,22 @@ void ADC1_COMP_IRQHandler (void)
 {
 	if (ADC1->ISR & ADC_IT_EOC)
 	{
+#ifdef BUCK_BOOST_WITH_CONTROL
+		if (ADC1->ISR & ADC_IT_EOSEQ)	//seguro que es channel6
+		{
+			p_channel = &adc_ch[6];
+			*p_channel = ADC1->DR;
+			p_channel = &adc_ch[0];
+			seq_ready = 1;
+		}
+		else
+		{
+			*p_channel = ADC1->DR;		//
+			if (p_channel < &adc_ch[6])
+				p_channel++;
+		}
+#endif
+
 #ifdef BOOST_CONVENCIONAL
 		if (ADC1->ISR & ADC_IT_EOSEQ)	//seguro que es channel9
 		{

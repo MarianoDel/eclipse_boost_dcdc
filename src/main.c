@@ -26,19 +26,17 @@
 //#include <string.h>
 
 
-
-
 //--- VARIABLES EXTERNAS ---//
 volatile unsigned char timer_1seg = 0;
 
 volatile unsigned short timer_led_comm = 0;
 volatile unsigned short wait_ms_var = 0;
-
-volatile unsigned short adc_ch[6];
-
 volatile unsigned char seq_ready = 0;
 
 #ifdef BOOST_CONVENCIONAL
+
+volatile unsigned short adc_ch[4];
+
 #define Iout_Sense	adc_ch[0]
 #define Vin_Sense	adc_ch[1]
 #define I_Sense		adc_ch[2]
@@ -46,19 +44,36 @@ volatile unsigned char seq_ready = 0;
 #endif
 
 #ifdef BOOST_WITH_CONTROL
+
+volatile unsigned short adc_ch[6];
+
 #define Vin_Sense		adc_ch[0]
 #define Iout_Sense		adc_ch[1]
 #define I_Sense			adc_ch[2]
 #define One_Ten_Sense	adc_ch[3]
 #define One_Ten_Pote	adc_ch[4]
 #define Vout_Sense		adc_ch[5]
+#endif
+
+#ifdef BUCK_BOOST_WITH_CONTROL
+
+volatile unsigned short adc_ch[7];
+
+#define Vin_Sense		adc_ch[0]
+#define Iout_Sense		adc_ch[1]
+#define Boost_Sense		adc_ch[2]
+#define Buck_Sense		adc_ch[3]
+#define One_Ten_Sense	adc_ch[4]
+#define One_Ten_Pote	adc_ch[5]
+#define Vout_Sense		adc_ch[6]
+#endif
 
 //----- para los filtros ------//
 unsigned short v_pote_samples [32];
 unsigned char v_pote_index;
 unsigned int pote_sumation;
 
-#endif
+
 
 //--- VARIABLES GLOBALES ---//
 
@@ -77,9 +92,6 @@ volatile unsigned short minutes = 0;
 //------- de los PID ---------
 volatile int acc = 0;
 
-#define PID_LARGO
-
-#ifdef PID_LARGO
 						//todos se dividen por 32768
 //#define KPV	49152		// 1.5
 //#define KIV	3048		// I=0.093 y P=1.5 una placa ok y la otra no
@@ -97,7 +109,7 @@ volatile int acc = 0;
 #define K1V (KPV + KIV + KDV)
 #define K2V (KPV + KDV + KDV)
 #define K3V (KDV)
-#endif
+
 
 
 
@@ -122,6 +134,26 @@ volatile int acc = 0;
 #endif
 
 #ifdef BOOST_WITH_CONTROL
+#define SP_VOUT		955			//Vout_Sense mide = Vout / 13
+								//Vout = 3.3 * 13 * SP / 1024
+
+#define DMAX	800				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
+
+#define MAX_I	305
+//#define MAX_I	153				//cuando uso Iot_Sense / 2
+//								//Iout_Sense mide = Iout * 0.33
+//								//Iout = 3.3 * MAX_I / (0.33 * 1024)
+
+
+#define MAX_I_MOSFET	193		//modificacion 13-07-16
+								//I_Sense arriba de 620mV empieza a saturar la bobina
+
+#define MIN_VIN			300		//modificacion 13-07-16
+								//Vin_Sense debajo de 2.39V corta @22V entrada 742
+								//Vin_Sense debajo de 1.09V corta @10V entrada 337
+#endif
+
+#ifdef BUCK_BOOST_WITH_CONTROL
 #define SP_VOUT		955			//Vout_Sense mide = Vout / 13
 								//Vout = 3.3 * 13 * SP / 1024
 
@@ -177,14 +209,13 @@ int main(void)
 	short d = 0;
 	short d_last = 0;
 
-#ifdef PID_LARGO
 	short error_z1 = 0;
 	short error_z2 = 0;
 
 	short val_k1 = 0;
 	short val_k2 = 0;
 	short val_k3 = 0;
-#endif
+
 	unsigned char undersampling = 0;
 
 //	unsigned char last_main_overload  = 0;
@@ -207,10 +238,19 @@ int main(void)
 	{
 		while (1)	/* Capture error */
 		{
+#ifdef BOOST_WITH_CONTROL
 			if (LED)
 				LED_OFF;
 			else
 				LED_ON;
+#endif
+
+#ifdef BUCK_BOOST_WITH_CONTROL
+			if (LEDR)
+				LEDR_OFF;
+			else
+				LEDR_ON;
+#endif
 
 			for (i = 0; i < 255; i++)
 			{
@@ -223,7 +263,13 @@ int main(void)
 
 
 	//TIM Configuration.
+#if ((defined BOOST_WITH_CONTROL) || (defined BOOST_CONVENCIONAL))
 	TIM_3_Init();
+#endif
+#ifdef BUCK_BOOST_WITH_CONTROL
+	TIM_1_Init();
+	TIM_3_Init();
+#endif
 
 	//--- COMIENZO PROGRAMA DE PRODUCCION
 
@@ -255,9 +301,36 @@ int main(void)
 //		}
 //	}
 
-	MOSFET_ON;
-	Update_TIM3_CH1 (0);
+	if (OUTPUT_ENA)
+	{
+		Update_TIM3_CH1 (10);
+		Update_TIM3_CH2 (50);
+	}
+	else
+	{
+		Update_TIM3_CH1 (0);
+		Update_TIM3_CH2 (0);
+	}
 
+	while (1)
+	{
+		if (LEDR)
+		{
+			LEDR_OFF;
+			LEDV_OFF;
+		}
+		else
+		{
+			LEDR_ON;
+			LEDV_ON;
+		}
+
+		Wait_ms(100);
+	}
+
+#ifdef BOOST_WITH_CONTROL
+	MOSFET_ON;
+#endif
 
 
 	//--- Main loop ---//
@@ -267,7 +340,12 @@ int main(void)
 		if (seq_ready)
 		{
 			//reviso el tope de corriente del mosfet
+#ifdef BUCK_BOOST_WITH_CONTROL
+			if ((Boost_Sense > MAX_I_MOSFET) || (Vin_Sense < MIN_VIN))
+#endif
+#ifdef BOOST_WITH_CONTROL
 			if ((I_Sense > MAX_I_MOSFET) || (Vin_Sense < MIN_VIN))
+#endif
 			{
 				//corto el ciclo
 				d = 0;
@@ -304,7 +382,12 @@ int main(void)
 				else
 				{
 					//LAZO I
+#ifdef BUCK_BOOST_WITH_CONTROL
+					LEDV_ON;
+#endif
+#ifdef BOOST_WITH_CONTROL
 					LED_ON;
+#endif
 					undersampling--;
 					if (!undersampling)
 					{
@@ -386,7 +469,12 @@ int main(void)
 			//pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
 			//pote_value = MAFilter32Pote (One_Ten_Pote);
 			seq_ready = 0;
+#ifdef BUCK_BOOST_WITH_CONTROL
+			LEDV_OFF;
+#endif
+#ifdef BOOST_WITH_CONTROL
 			LED_OFF;
+#endif
 		}
 	}	//termina while(1)
 
