@@ -98,18 +98,25 @@ volatile int acc = 0;
 //#define KIV	1024		// I=0.0625 y P=1.5 una placa ok y la otra no
 
 //if ((defined BOOST_CONVENCIONAL) || (defined BOOST_WITH_CONTROL))
-						//todos se dividen por 128
-#define KPV	128			//	4
-#define KIV	16			//	64 = 0.0156 32, 16
-//#define KPV	0			//	0
-//#define KIV	128			//	1
+
+//todos se dividen por 128
+#define KPV	128			// 1
+#define KIV	64			// 0.5
 #define KDV	0			// 0
+
+//todos se dividen por 128
+#define KPI	128			// 1
+#define KII	16			// .125
+#define KDI	0			// 0
 
 
 #define K1V (KPV + KIV + KDV)
 #define K2V (KPV + KDV + KDV)
 #define K3V (KDV)
 
+#define K1I (KPI + KII + KDI)
+#define K2I (KPI + KDI + KDI)
+#define K3I (KDI)
 
 
 
@@ -154,12 +161,12 @@ volatile int acc = 0;
 #endif
 
 #ifdef BUCK_BOOST_WITH_CONTROL
-#define SP_VOUT		955			//Vout_Sense mide = Vout / 13
-								//Vout = 3.3 * 13 * SP / 1024
+#define SP_VOUT		638			//566 23.35V
+								//
 
 #define DMAX	800				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
 
-#define MAX_I	305
+#define MAX_I	297
 //#define MAX_I	153				//cuando uso Iot_Sense / 2
 //								//Iout_Sense mide = Iout * 0.33
 //								//Iout = 3.3 * MAX_I / (0.33 * 1024)
@@ -168,9 +175,10 @@ volatile int acc = 0;
 #define MAX_I_MOSFET	193		//modificacion 13-07-16
 								//I_Sense arriba de 620mV empieza a saturar la bobina
 
-#define MIN_VIN			300		//modificacion 13-07-16
-								//Vin_Sense debajo de 2.39V corta @22V entrada 742
-								//Vin_Sense debajo de 1.09V corta @10V entrada 337
+#define MAX_VIN			953		//40V en entrada
+#define MIN_VIN			233		//10V en entrada
+
+
 #endif
 
 //--- FUNCIONES DEL MODULO ---//
@@ -202,13 +210,13 @@ int main(void)
 	unsigned int medida = 0;
 	unsigned short pote_value;
 	short error = 0;
-	short val_p = 0;
-	short val_d = 0;
-	short val_dz = 0;
-	short val_dz1 = 0;
-	short d = 0;
-	short d_last = 0;
+//	short val_p = 0;
+//	short val_d = 0;
+//	short val_dz = 0;
+//	short val_dz1 = 0;
+//	short d_last = 0;
 
+	short d = 0;
 	short error_z1 = 0;
 	short error_z2 = 0;
 
@@ -216,6 +224,7 @@ int main(void)
 	short val_k2 = 0;
 	short val_k3 = 0;
 
+	unsigned char converter_mode = BOOST_MODE;
 	unsigned char undersampling = 0;
 
 //	unsigned char last_main_overload  = 0;
@@ -301,37 +310,39 @@ int main(void)
 //		}
 //	}
 
-	if (OUTPUT_ENA)
-	{
-		Update_TIM3_CH1 (10);
-		Update_TIM3_CH2 (50);
-	}
-	else
-	{
-		Update_TIM3_CH1 (0);
-		Update_TIM3_CH2 (0);
-	}
-
-	while (1)
-	{
-		if (LEDR)
-		{
-			LEDR_OFF;
-			LEDV_OFF;
-		}
-		else
-		{
-			LEDR_ON;
-			LEDV_ON;
-		}
-
-		Wait_ms(100);
-	}
+//	while(1)
+//	{
+//		if (OUTPUT_ENABLE)
+//		{
+//			Update_Buck(50);
+//			Update_Boost(50);
+//		}
+//		else
+//		{
+//			Update_Buck(0);
+//			Update_Boost(0);
+//		}
+//		if (LEDV)
+//			LEDV_OFF;
+//		else
+//			LEDV_ON;
+//
+//		Wait_ms(300);
+//	}
 
 #ifdef BOOST_WITH_CONTROL
 	MOSFET_ON;
 #endif
+#ifdef BUCK_BOOST_WITH_CONTROL
+//	converter_mode = BOOST_MODE;
+//	Update_Buck(1024);
+//	Update_Boost(0);
 
+	converter_mode = BUCK_MODE;
+	Update_Buck(100);
+	Update_Boost(0);
+	while (1);
+#endif
 
 	//--- Main loop ---//
 	while(1)
@@ -339,13 +350,219 @@ int main(void)
 		//PROGRAMA DE PRODUCCION
 		if (seq_ready)
 		{
-			//reviso el tope de corriente del mosfet
 #ifdef BUCK_BOOST_WITH_CONTROL
-			if ((Boost_Sense > MAX_I_MOSFET) || (Vin_Sense < MIN_VIN))
+			switch (converter_mode)
+			{
+				case BUCK_MODE:
+					//reviso el tope de corriente del mosfet
+					if ((Buck_Sense > MAX_I_MOSFET) || (Vin_Sense > MAX_VIN))
+					{
+						//corto el ciclo
+						d = 0;
+					}
+					else
+					{
+						//VEO SI USO LAZO V O I
+						if (Vout_Sense > SP_VOUT)
+						{
+							//LAZO V
+							error = SP_VOUT - Vout_Sense;
+
+							//K1
+							acc = K1V * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
+							val_k1 = acc >> 7;
+
+							//K2
+							acc = K2V * error_z1;		//K2 = no llega pruebo con 1
+							val_k2 = acc >> 7;			//si es mas grande que K1 + K3 no lo deja arrancar
+
+							//K3
+							acc = K3V * error_z2;		//K3 = 0.4
+							val_k3 = acc >> 7;
+
+							d = d + val_k1 - val_k2 + val_k3;
+							if (d < 0)
+								d = 0;
+							else if (d > DMAX)		//no me preocupo si estoy con folding
+								d = DMAX;		//porque d deberia ser chico
+
+							//Update variables PID
+							error_z2 = error_z1;
+							error_z1 = error;
+						}
+						else
+						{
+							//LAZO I
+							LEDV_ON;
+
+							undersampling--;
+							if (!undersampling)
+							{
+								//undersampling = 10;		//funciona bien pero con saltos
+								undersampling = 20;		//funciona bien pero con saltos
+
+#ifdef WITH_POTE
+								//con control por pote
+								medida = MAX_I * pote_value;		//con filtro
+								medida >>= 10;
+								error = medida - Iout_Sense;	//340 es 1V en adc
+#endif
+#ifdef WITHOUT_POTE
+								error = MAX_I - Iout_Sense;	//340 es 1V en adc
+#endif
+
+
+								acc = K1I * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
+								val_k1 = acc >> 7;
+
+								//K2
+								acc = K2I * error_z1;		//K2 = no llega pruebo con 1
+								val_k2 = acc >> 7;			//si es mas grande que K1 + K3 no lo deja arrancar
+
+								//K3
+								acc = K3I * error_z2;		//K3 = 0.4
+								val_k3 = acc >> 7;
+
+								d = d + val_k1 - val_k2 + val_k3;
+								if (d < 0)
+									d = 0;
+								else if (d > DMAX)		//no me preocupo si estoy con folding
+									d = DMAX;		//porque d deberia ser chico
+
+								//Update variables PID
+								error_z2 = error_z1;
+								error_z1 = error;
+							}
+						}
+					}
+#ifdef WITH_POTE
+					pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
+#endif
+
+					if (OUTPUT_ENABLE)
+						Update_Buck (d);
+					else
+						Update_Buck (0);
+
+					//Update_TIM3_CH2 (Iout_Sense);	//muestro en pata PA7 el sensado de Iout
+
+					//pote_value = MAFilter32Circular (One_Ten_Pote, v_pote_samples, p_pote, &pote_sumation);
+					//pote_value = MAFilter32 (One_Ten_Pote, v_pote_samples);
+					//pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
+					//pote_value = MAFilter32Pote (One_Ten_Pote);
+					seq_ready = 0;
+					LEDV_OFF;
+
+					break;
+
+				case BOOST_MODE:
+					//reviso el tope de corriente del mosfet
+					if ((Boost_Sense > MAX_I_MOSFET) || (Vin_Sense < MIN_VIN))
+					{
+						//corto el ciclo
+						d = 0;
+					}
+					else
+					{
+						//VEO SI USO LAZO V O I
+						if (Vout_Sense > SP_VOUT)
+						{
+							//LAZO V
+							error = SP_VOUT - Vout_Sense;
+
+							//K1
+							acc = K1V * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
+							val_k1 = acc >> 7;
+
+							//K2
+							acc = K2V * error_z1;		//K2 = no llega pruebo con 1
+							val_k2 = acc >> 7;			//si es mas grande que K1 + K3 no lo deja arrancar
+
+							//K3
+							acc = K3V * error_z2;		//K3 = 0.4
+							val_k3 = acc >> 7;
+
+							d = d + val_k1 - val_k2 + val_k3;
+							if (d < 0)
+								d = 0;
+							else if (d > DMAX)		//no me preocupo si estoy con folding
+								d = DMAX;		//porque d deberia ser chico
+
+							//Update variables PID
+							error_z2 = error_z1;
+							error_z1 = error;
+						}
+						else
+						{
+							//LAZO I
+							LEDV_ON;
+
+							undersampling--;
+							if (!undersampling)
+							{
+								//undersampling = 10;		//funciona bien pero con saltos
+								undersampling = 20;		//funciona bien pero con saltos
+
+#ifdef WITH_POTE
+								//con control por pote
+								medida = MAX_I * pote_value;		//con filtro
+								medida >>= 10;
+								error = medida - Iout_Sense;	//340 es 1V en adc
+#endif
+#ifdef WITHOUT_POTE
+								error = MAX_I - Iout_Sense;	//340 es 1V en adc
+#endif
+
+
+								acc = K1I * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
+								val_k1 = acc >> 7;
+
+								//K2
+								acc = K2I * error_z1;		//K2 = no llega pruebo con 1
+								val_k2 = acc >> 7;			//si es mas grande que K1 + K3 no lo deja arrancar
+
+								//K3
+								acc = K3I * error_z2;		//K3 = 0.4
+								val_k3 = acc >> 7;
+
+								d = d + val_k1 - val_k2 + val_k3;
+								if (d < 0)
+									d = 0;
+								else if (d > DMAX)		//no me preocupo si estoy con folding
+									d = DMAX;		//porque d deberia ser chico
+
+								//Update variables PID
+								error_z2 = error_z1;
+								error_z1 = error;
+							}
+						}
+					}
+#ifdef WITH_POTE
+					pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
+#endif
+
+					if (OUTPUT_ENABLE)
+						Update_Boost (d);
+					else
+						Update_Boost (0);
+
+					//Update_TIM3_CH2 (Iout_Sense);	//muestro en pata PA7 el sensado de Iout
+
+					//pote_value = MAFilter32Circular (One_Ten_Pote, v_pote_samples, p_pote, &pote_sumation);
+					//pote_value = MAFilter32 (One_Ten_Pote, v_pote_samples);
+					//pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
+					//pote_value = MAFilter32Pote (One_Ten_Pote);
+					seq_ready = 0;
+					LEDV_OFF;
+					break;
+
+				default:
+					break;
+			}
 #endif
 #ifdef BOOST_WITH_CONTROL
 			if ((I_Sense > MAX_I_MOSFET) || (Vin_Sense < MIN_VIN))
-#endif
+
 			{
 				//corto el ciclo
 				d = 0;
@@ -382,12 +599,7 @@ int main(void)
 				else
 				{
 					//LAZO I
-#ifdef BUCK_BOOST_WITH_CONTROL
-					LEDV_ON;
-#endif
-#ifdef BOOST_WITH_CONTROL
 					LED_ON;
-#endif
 					undersampling--;
 					if (!undersampling)
 					{
@@ -469,13 +681,9 @@ int main(void)
 			//pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
 			//pote_value = MAFilter32Pote (One_Ten_Pote);
 			seq_ready = 0;
-#ifdef BUCK_BOOST_WITH_CONTROL
-			LEDV_OFF;
-#endif
-#ifdef BOOST_WITH_CONTROL
 			LED_OFF;
 #endif
-		}
+		}	//fin seq_ready
 	}	//termina while(1)
 
 	return 0;

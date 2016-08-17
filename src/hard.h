@@ -13,6 +13,9 @@
 //#define VER_1_1
 #define VER_1_2
 
+//#define WITH_POTE
+#define WITHOUT_POTE
+
 #ifdef VER_1_0
 #define BOOST_CONVENCIONAL	//placa anterior del tamaño de la F12V5A ultimo prog 13-07-16
 #endif
@@ -53,7 +56,7 @@
 
 //GPIOB pin1
 #define JUMPER_CONF ((GPIOB->IDR & 0x0002) == 0)
-#define OUTPUT_ENA	(!JUMPER_CONF)
+#define OUTPUT_ENABLE	(!JUMPER_CONF)
 //GPIOB pin3
 
 //GPIOB pin4	//TIM3_CH1 para control PWM
@@ -147,26 +150,8 @@
 #endif
 
 //ESTADOS DEL PROGRAMA PRINCIPAL
-#define MAIN_INIT					0
-
-#define MAIN_DMX_CHECK_CHANNEL				10
-#define MAIN_DMX_CHECK_CHANNEL_B			11
-#define MAIN_DMX_CHECK_CHANNEL_SELECTED		12
-#define MAIN_DMX_CHECK_CHANNEL_S1			13
-#define MAIN_DMX_CHECK_CHANNEL_S2			14
-#define MAIN_DMX_SAVE_CONF					15
-#define MAIN_DMX_NORMAL						16
-
-//#define MAIN_MAN_PX_CHECK			20
-//#define MAIN_MAN_PX_CHECK_B			21
-//#define MAIN_MAN_PX_CHECK_DEEP		22
-//#define MAIN_MAN_PX_CHECK_S1		23
-//#define MAIN_MAN_PX_CHECK_S2		24
-//#define MAIN_MAN_PX_SAVE_CONF		25
-//#define MAIN_MAN_PX_NORMAL			26
-//
-//#define MAIN_TEMP_OVERLOAD			30
-//#define MAIN_TEMP_OVERLOAD_B		31
+#define BOOST_MODE	0
+#define BUCK_MODE	1
 
 //---- Temperaturas en el LM335
 //37	2,572

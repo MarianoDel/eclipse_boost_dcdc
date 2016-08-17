@@ -68,10 +68,11 @@ void Update_TIM3_CH1 (unsigned short);
 void Update_TIM3_CH2 (unsigned short);
 void Update_TIM3_CH3 (unsigned short);
 void Update_TIM3_CH4 (unsigned short);
-
 void Update_TIM3_Freq (unsigned short);
-
 void Wait_ms (unsigned short wait);
+
+#define Update_Buck(X) Update_TIM3_CH1(X)
+#define Update_Boost(X) Update_TIM3_CH2(X)
 #endif
 //--- End ---//
 
