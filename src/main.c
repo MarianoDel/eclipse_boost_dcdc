@@ -112,6 +112,9 @@ volatile unsigned short timer_led_error = 0;
 #define TIM_BIP_LONG	800
 #define TT_TO_FREE_ERROR	5000
 
+#define ERR_THRESH_MAX_VIN	500
+#define ERR_THRESH_MIN_VIN	100
+
 
 //------- de los PID ---------
 volatile int acc = 0;
@@ -372,7 +375,7 @@ int main(void)
 	converter_mode = BUCK_MODE;
 	//Update_Buck(100);
 	Update_Boost(0);
-	//while (1);
+	error_counter = 0;
 #endif
 
 	//--- Main loop ---//
@@ -396,11 +399,13 @@ int main(void)
 						//corto el ciclo
 						d = 0;
 						error_counter++;
-						if (error_counter > 500)
+						if (error_counter > ERR_THRESH_MAX_VIN)
 						{
 							converter_mode = ERROR_MODE;
 							timer_standby = TT_TO_FREE_ERROR;		//5 segundos de error
 							error_state = ERROR_HIGH_VIN;
+							Update_Buck(0);
+							Update_Boost(0);
 						}
 					}
 					else
@@ -532,11 +537,13 @@ int main(void)
 						//corto el ciclo
 						d = 0;
 						error_counter++;
-						if (error_counter > 500)
+						if (error_counter > ERR_THRESH_MIN_VIN)
 						{
 							converter_mode = ERROR_MODE;
 							timer_standby = TT_TO_FREE_ERROR;		//5 segundos de error
 							error_state = ERROR_LOW_VIN;
+							Update_Buck(0);
+							Update_Boost(0);
 						}
 					}
 					else
