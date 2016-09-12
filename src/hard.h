@@ -197,6 +197,7 @@
 //ESTADOS DEL PROGRAMA PRINCIPAL
 #define BOOST_MODE	0
 #define BUCK_MODE	1
+#define ERROR_MODE	2
 
 //---- Temperaturas en el LM335
 //37	2,572

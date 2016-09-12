@@ -89,6 +89,27 @@ volatile unsigned char move_relay;
 volatile unsigned char secs = 0;
 volatile unsigned short minutes = 0;
 
+// ------- de los errores -------
+enum {
+	ERROR_INIT = 0,
+	ERROR_LOW_VIN,
+	ERROR_HIGH_VIN,
+	ERROR_WRONG_VIN,
+	ERROR_RUN,
+	ERROR_RUN_A,
+	ERROR_RUN_B,
+	ERROR_OK
+
+} typedef ErrorState;
+
+ErrorState error_state = 0;
+unsigned char error_bips = 0;
+unsigned char error_bips_counter = 0;
+volatile unsigned short timer_led_error = 0;
+#define TIM_BIP_SHORT	300
+#define TIM_BIP_LONG	800
+
+
 //------- de los PID ---------
 volatile int acc = 0;
 
@@ -175,6 +196,8 @@ volatile int acc = 0;
 
 #define MAX_I_MOSFET	193		//modificacion 13-07-16
 								//I_Sense arriba de 620mV empieza a saturar la bobina
+#define MAX_I_MOSFET_BOOST		MAX_I_MOSFET
+#define MAX_I_MOSFET_BUCK		MAX_I_MOSFET
 
 #define MAX_VIN			953		//40V en entrada
 #define MIN_VIN			233		//10V en entrada
@@ -192,6 +215,7 @@ volatile int acc = 0;
 //--- FUNCIONES DEL MODULO ---//
 void TimingDelay_Decrement(void);
 void Update_PWM (unsigned short);
+void UpdateErrors (void);
 
 // ------- del DMX -------
 extern void EXTI4_15_IRQHandler(void);
@@ -236,6 +260,8 @@ int main(void)
 	unsigned char undersampling = 0;
 
 	unsigned char change_mode_counter = 0;
+	unsigned short error_counter = 0;
+
 //	unsigned char last_main_overload  = 0;
 //	unsigned char last_function;
 //	unsigned char last_program, last_program_deep;
@@ -364,10 +390,22 @@ int main(void)
 			{
 				case BUCK_MODE:
 					//reviso el tope de corriente del mosfet
-					if ((Buck_Sense > MAX_I_MOSFET) || (Vin_Sense > MAX_VIN))
+					if (Buck_Sense > MAX_I_MOSFET_BUCK)
 					{
 						//corto el ciclo
 						d = 0;
+					}
+					else if (Vin_Sense > MAX_VIN)
+					{
+						//corto el ciclo
+						d = 0;
+						error_counter++;
+						if (error_counter > 500)
+						{
+							converter_mode = ERROR_MODE;
+							timer_standby = 5000;		//5 segundos de error
+							error_state = ERROR_HIGH_VIN;
+						}
 					}
 					else
 					{
@@ -488,10 +526,22 @@ int main(void)
 
 				case BOOST_MODE:
 					//reviso el tope de corriente del mosfet
-					if ((Boost_Sense > MAX_I_MOSFET) || (Vin_Sense < MIN_VIN))
+					if (Boost_Sense > MAX_I_MOSFET_BOOST)
 					{
 						//corto el ciclo
 						d = 0;
+					}
+					else if (Vin_Sense < MIN_VIN)
+					{
+						//corto el ciclo
+						d = 0;
+						error_counter++;
+						if (error_counter > 500)
+						{
+							converter_mode = ERROR_MODE;
+							timer_standby = 5000;		//5 segundos de error
+							error_state = ERROR_LOW_VIN;
+						}
 					}
 					else
 					{
@@ -613,6 +663,33 @@ int main(void)
 						change_mode_counter--;
 
 
+					break;
+
+				case ERROR_MODE:
+					if (!timer_standby)
+					{
+						timer_standby = 5000;
+//						if (error_bips == 1)	//estoy en bajo VIN
+//						{
+//							if (Vin_Sense > MIN_VIN)
+//							{
+//
+//							}
+//						}
+//						else if (error_bips == 2)	//estoy en alto VIN
+//						{
+//							if (Vin_Sense < MAX_VIN)
+//							{
+//
+//							}
+//						}
+						if ((Vin_Sense < MAX_VIN) && (Vin_Sense > MIN_VIN))
+						{
+							converter_mode = BUCK_MODE;
+							error_counter = 0;
+							error_state = ERROR_INIT;
+						}
+					}
 					break;
 
 				default:
@@ -743,6 +820,9 @@ int main(void)
 			LED_OFF;
 #endif
 		}	//fin seq_ready
+
+		//cosas que no tienen que ver con las muestras
+		UpdateErrors();
 	}	//termina while(1)
 
 	return 0;
@@ -750,6 +830,71 @@ int main(void)
 
 
 //--- End of Main ---//
+void UpdateErrors (void)
+{
+	switch (error_state)
+	{
+		case ERROR_INIT:
+			break;
+
+		case ERROR_LOW_VIN:
+			error_bips = 1;
+			error_state = ERROR_RUN;
+			break;
+
+		case ERROR_HIGH_VIN:
+			error_bips = 2;
+			error_state = ERROR_RUN;
+			break;
+
+		case ERROR_WRONG_VIN:
+			error_bips = 3;
+			error_state = ERROR_RUN;
+			break;
+
+		case ERROR_RUN:
+			if (!timer_led_error)
+			{
+				LEDR_ON;
+				error_state++;
+				timer_led_error = TIM_BIP_SHORT;
+			}
+			break;
+
+		case ERROR_RUN_A:
+			if (!timer_led_error)
+			{
+				LEDR_OFF;
+				if (error_bips_counter)
+				{
+					error_bips_counter--;
+					error_state--;
+					timer_led_error = TIM_BIP_SHORT;
+				}
+				else
+				{
+					error_state++;
+					timer_led_error = TIM_BIP_LONG;
+				}
+			}
+			break;
+
+		case ERROR_RUN_B:
+			if (!timer_led_error)
+			{
+				error_state = ERROR_RUN;
+				error_bips_counter = error_bips;
+			}
+			break;
+
+		case ERROR_OK:
+		default:
+			LEDR_OFF;
+			error_state = ERROR_INIT;
+			break;
+	}
+}
+
 void Update_PWM (unsigned short pwm)
 {
 	Update_TIM3_CH1 (pwm);
@@ -786,6 +931,8 @@ void TimingDelay_Decrement(void)
 	if (filter_timer)
 		filter_timer--;
 
+	if (timer_led_error)
+		timer_led_error--;
 	/*
 	//cuenta 1 segundo
 	if (button_timer_internal)
