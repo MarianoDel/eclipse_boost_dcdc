@@ -11,10 +11,12 @@
 //-------- Board Configuration -----------------------//
 //#define VER_1_0
 //#define VER_1_1
-#define VER_1_2
+//#define VER_1_2
+#define VER_2_0
 
 //#define WITH_POTE
 #define WITHOUT_POTE
+
 
 #ifdef VER_1_0
 #define BOOST_CONVENCIONAL	//placa anterior del tamaño de la F12V5A ultimo prog 13-07-16
@@ -22,11 +24,54 @@
 #ifdef VER_1_1
 #define BOOST_WITH_CONTROL		//placa nueva con control 1 a 10V o pote 20-07-16
 #endif
-#ifdef VER_1_2
+#if (defined VER_2_0) || (defined VER_1_2)
 #define BUCK_BOOST_WITH_CONTROL		//placa mas nueva con control 1 a 10V o pote + fuente buck 10-08-16
 #endif
 
-#ifdef BUCK_BOOST_WITH_CONTROL
+#ifdef VER_2_0
+//GPIOA pin0
+//GPIOA pin1
+//GPIOA pin2
+//GPIOA pin3
+//GPIOA pin4
+//GPIOA pin5
+//GPIOA pin6		//Analog Inputs
+
+//GPIOA pin7
+
+//GPIOA pin8
+#define LEDR ((GPIOA->ODR & 0x0100) != 0)
+#define LEDR_ON	GPIOA->BSRR = 0x00000100
+#define LEDR_OFF GPIOA->BSRR = 0x01000000
+
+//GPIOA pin9
+#define LEDV ((GPIOA->ODR & 0x0200) != 0)
+#define LEDV_ON	GPIOA->BSRR = 0x00000200
+#define LEDV_OFF GPIOA->BSRR = 0x02000000
+
+//GPIOA pin10
+//GPIOA pin11
+//GPIOA pin12
+//GPIOA pin13
+//GPIOA pin14
+//GPIOA pin15
+
+//GPIOB pin0
+
+//GPIOB pin1
+#define JUMPER_CONF ((GPIOB->IDR & 0x0002) == 0)
+#define OUTPUT_ENABLE	(!JUMPER_CONF)
+//GPIOB pin3
+
+//GPIOB pin4	//TIM3_CH1 para control PWM CTRL BUCK
+//GPIOB pin5	//TIM3_CH2 para control PWM CTRL BOOST
+
+//GPIOB pin6
+//GPIOB pin7
+
+#endif
+
+#ifdef VER_1_2
 //GPIOA pin0
 //GPIOA pin1
 //GPIOA pin2
@@ -67,7 +112,7 @@
 
 #endif
 
-#ifdef BOOST_CONVENCIONAL
+#ifdef VER_1_0
 //GPIOA pin0
 //GPIOA pin1
 //GPIOA pin2		//Analog Inputs
@@ -103,7 +148,7 @@
 //GPIOB pin7
 #endif
 
-#ifdef BOOST_WITH_CONTROL
+#ifdef VER_1_1
 //GPIOA pin0
 //GPIOA pin1
 //GPIOA pin2		//Analog Inputs

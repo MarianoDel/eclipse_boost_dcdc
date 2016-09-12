@@ -162,9 +162,10 @@ volatile int acc = 0;
 
 #ifdef BUCK_BOOST_WITH_CONTROL
 #define SP_VOUT		638			//566 23.35V
-								//
+								//638 26V
 
 #define DMAX	800				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
+#define DMAX_BUCK	950				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
 
 #define MAX_I	297
 //#define MAX_I	153				//cuando uso Iot_Sense / 2
@@ -178,6 +179,13 @@ volatile int acc = 0;
 #define MAX_VIN			953		//40V en entrada
 #define MIN_VIN			233		//10V en entrada
 
+#define CHANGE_MODE_THRESH	100
+
+#define VBUCK_THRESH		(SP_VOUT - 70)		//10% abajo de la corriente de salida
+
+#define IBUCK_THRESH		(MAX_I - 97)		//10% abajo de la corriente de salida
+#define IBOOST_THRESH		(MAX_I + 30)		//10% arriba de la corrinete de salida
+#define DMIN_THRESH		100
 
 #endif
 
@@ -227,6 +235,7 @@ int main(void)
 	unsigned char converter_mode = BOOST_MODE;
 	unsigned char undersampling = 0;
 
+	unsigned char change_mode_counter = 0;
 //	unsigned char last_main_overload  = 0;
 //	unsigned char last_function;
 //	unsigned char last_program, last_program_deep;
@@ -339,9 +348,9 @@ int main(void)
 //	Update_Boost(0);
 
 	converter_mode = BUCK_MODE;
-	Update_Buck(100);
+	//Update_Buck(100);
 	Update_Boost(0);
-	while (1);
+	//while (1);
 #endif
 
 	//--- Main loop ---//
@@ -383,8 +392,8 @@ int main(void)
 							d = d + val_k1 - val_k2 + val_k3;
 							if (d < 0)
 								d = 0;
-							else if (d > DMAX)		//no me preocupo si estoy con folding
-								d = DMAX;		//porque d deberia ser chico
+							else if (d > DMAX_BUCK)		//no me preocupo si estoy con folding
+								d = DMAX_BUCK;		//porque d deberia ser chico
 
 							//Update variables PID
 							error_z2 = error_z1;
@@ -426,8 +435,8 @@ int main(void)
 								d = d + val_k1 - val_k2 + val_k3;
 								if (d < 0)
 									d = 0;
-								else if (d > DMAX)		//no me preocupo si estoy con folding
-									d = DMAX;		//porque d deberia ser chico
+								else if (d > DMAX_BUCK)		//no me preocupo si estoy con folding
+									d = DMAX_BUCK;		//porque d deberia ser chico
 
 								//Update variables PID
 								error_z2 = error_z1;
@@ -452,6 +461,28 @@ int main(void)
 					//pote_value = MAFilter32Pote (One_Ten_Pote);
 					seq_ready = 0;
 					LEDV_OFF;
+
+					//reviso si necesito un cambio de modo desde BUCK
+					if ((Vin_Sense <= VBUCK_THRESH) &&
+							(d == DMAX_BUCK)	&&
+							(Iout_Sense < IBUCK_THRESH))
+					{
+						if (change_mode_counter < CHANGE_MODE_THRESH)
+							change_mode_counter++;
+						else
+						{
+							change_mode_counter = 0;
+							converter_mode = BOOST_MODE;
+							Update_Buck(1024);
+							Update_Boost(0);
+							d = 0;
+							error_z1 = 0;
+							error_z2 = 0;
+							undersampling = 0;
+						}
+					}
+					else if (change_mode_counter)
+						change_mode_counter--;
 
 					break;
 
@@ -497,8 +528,9 @@ int main(void)
 							//LAZO I
 							LEDV_ON;
 
-							undersampling--;
-							if (!undersampling)
+							if (undersampling)
+								undersampling--;
+							else
 							{
 								//undersampling = 10;		//funciona bien pero con saltos
 								undersampling = 20;		//funciona bien pero con saltos
@@ -554,6 +586,33 @@ int main(void)
 					//pote_value = MAFilter32Pote (One_Ten_Pote);
 					seq_ready = 0;
 					LEDV_OFF;
+
+					//reviso si necesito un cambio desde modo BOOST
+					medida = Vout_Sense * 120;
+					medida >>= 7;
+//					if ((Vin_Sense >= Vout_Sense) &&
+					if ((Vin_Sense >= medida) &&
+							(d < DMIN_THRESH)	&&
+							(Iout_Sense > IBOOST_THRESH))
+					{
+						if (change_mode_counter < CHANGE_MODE_THRESH)
+							change_mode_counter++;
+						else
+						{
+							change_mode_counter = 0;
+							converter_mode = BUCK_MODE;
+							Update_Buck(0);
+							Update_Boost(0);
+							d = 0;
+							error_z1 = 0;
+							error_z2 = 0;
+							undersampling = 0;
+						}
+					}
+					else if (change_mode_counter)
+						change_mode_counter--;
+
+
 					break;
 
 				default:

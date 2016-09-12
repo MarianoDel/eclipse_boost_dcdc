@@ -30,6 +30,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f0xx_it.h"
 
+extern void TimingDelay_Decrement(void);
 
 /** @addtogroup STM32F0xx_StdPeriph_Examples
   * @{
