@@ -69,9 +69,11 @@ volatile unsigned short adc_ch[7];
 #endif
 
 //----- para los filtros ------//
+#ifdef WITH_POTE
 unsigned short v_pote_samples [32];
 unsigned char v_pote_index;
 unsigned int pote_sumation;
+#endif
 
 
 
@@ -108,6 +110,7 @@ unsigned char error_bips_counter = 0;
 volatile unsigned short timer_led_error = 0;
 #define TIM_BIP_SHORT	300
 #define TIM_BIP_LONG	800
+#define TT_TO_FREE_ERROR	5000
 
 
 //------- de los PID ---------
@@ -220,16 +223,6 @@ void UpdateErrors (void);
 // ------- del DMX -------
 extern void EXTI4_15_IRQHandler(void);
 
-//--- FILTROS DE SENSORES ---//
-#define LARGO_FILTRO 16
-#define DIVISOR      4   //2 elevado al divisor = largo filtro
-//#define LARGO_FILTRO 32
-//#define DIVISOR      5   //2 elevado al divisor = largo filtro
-unsigned short vtemp [LARGO_FILTRO + 1];
-unsigned short vpote [LARGO_FILTRO + 1];
-
-//--- FIN DEFINICIONES DE FILTRO ---//
-
 
 //-------------------------------------------//
 // @brief  Main program.
@@ -240,7 +233,6 @@ int main(void)
 {
 	unsigned char i;
 	unsigned int medida = 0;
-	unsigned short pote_value;
 	short error = 0;
 //	short val_p = 0;
 //	short val_d = 0;
@@ -262,6 +254,9 @@ int main(void)
 	unsigned char change_mode_counter = 0;
 	unsigned short error_counter = 0;
 
+#ifdef WITH_POTE
+	unsigned short pote_value;
+#endif
 //	unsigned char last_main_overload  = 0;
 //	unsigned char last_function;
 //	unsigned char last_program, last_program_deep;
@@ -323,10 +318,11 @@ int main(void)
 
 	//Inicializo el o los filtros
 	//filtro pote
+#ifdef WITH_POTE
 	v_pote_index = 0;
 	pote_sumation = 0;
 	pote_value = 0;
-
+#endif
 
 	//pruebo adc contra pwm
 //	while (1)
@@ -403,7 +399,7 @@ int main(void)
 						if (error_counter > 500)
 						{
 							converter_mode = ERROR_MODE;
-							timer_standby = 5000;		//5 segundos de error
+							timer_standby = TT_TO_FREE_ERROR;		//5 segundos de error
 							error_state = ERROR_HIGH_VIN;
 						}
 					}
@@ -539,7 +535,7 @@ int main(void)
 						if (error_counter > 500)
 						{
 							converter_mode = ERROR_MODE;
-							timer_standby = 5000;		//5 segundos de error
+							timer_standby = TT_TO_FREE_ERROR;		//5 segundos de error
 							error_state = ERROR_LOW_VIN;
 						}
 					}
@@ -668,7 +664,7 @@ int main(void)
 				case ERROR_MODE:
 					if (!timer_standby)
 					{
-						timer_standby = 5000;
+						timer_standby = TT_TO_FREE_ERROR;
 //						if (error_bips == 1)	//estoy en bajo VIN
 //						{
 //							if (Vin_Sense > MIN_VIN)
@@ -687,7 +683,7 @@ int main(void)
 						{
 							converter_mode = BUCK_MODE;
 							error_counter = 0;
-							error_state = ERROR_INIT;
+							error_state = ERROR_OK;
 						}
 					}
 					break;
