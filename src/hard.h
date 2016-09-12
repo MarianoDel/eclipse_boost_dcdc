@@ -14,9 +14,10 @@
 //#define VER_1_2
 #define VER_2_0
 
-//#define WITH_POTE
-#define WITHOUT_POTE
-
+//--- Tipo de control o ninguno con WITHOUT_POTE
+#define WITH_POTE
+//#define WITH_1_TO_10
+//#define WITHOUT_POTE
 
 #ifdef VER_1_0
 #define BOOST_CONVENCIONAL	//placa anterior del tamaño de la F12V5A ultimo prog 13-07-16

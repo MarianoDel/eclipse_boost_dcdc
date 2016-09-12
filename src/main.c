@@ -69,10 +69,10 @@ volatile unsigned short adc_ch[7];
 #endif
 
 //----- para los filtros ------//
-#ifdef WITH_POTE
+#if ((defined WITH_POTE) || (defined WITH_1_TO_10))
 unsigned short v_pote_samples [32];
+unsigned int pote_sumation = 0;		//circular 32
 unsigned char v_pote_index;
-unsigned int pote_sumation;
 #endif
 
 
@@ -112,8 +112,8 @@ volatile unsigned short timer_led_error = 0;
 #define TIM_BIP_LONG	800
 #define TT_TO_FREE_ERROR	5000
 
-#define ERR_THRESH_MAX_VIN	500
-#define ERR_THRESH_MIN_VIN	100
+#define ERR_THRESH_MAX_VIN	100		//255 max
+#define ERR_THRESH_MIN_VIN	100		//255 max
 
 
 //------- de los PID ---------
@@ -255,9 +255,9 @@ int main(void)
 	unsigned char undersampling = 0;
 
 	unsigned char change_mode_counter = 0;
-	unsigned short error_counter = 0;
+	unsigned char error_counter = 0;
 
-#ifdef WITH_POTE
+#if ((defined WITH_POTE) || (defined WITH_1_TO_10))
 	unsigned short pote_value;
 #endif
 //	unsigned char last_main_overload  = 0;
@@ -321,9 +321,9 @@ int main(void)
 
 	//Inicializo el o los filtros
 	//filtro pote
-#ifdef WITH_POTE
+#if ((defined WITH_POTE) || (defined WITH_1_TO_10))
 	v_pote_index = 0;
-	pote_sumation = 0;
+	pote_sumation = 0;		//circular 32
 	pote_value = 0;
 #endif
 
@@ -449,7 +449,7 @@ int main(void)
 								//undersampling = 10;		//funciona bien pero con saltos
 								undersampling = 20;		//funciona bien pero con saltos
 
-#ifdef WITH_POTE
+#if ((defined WITH_POTE) || (defined WITH_1_TO_10))
 								//con control por pote
 								medida = MAX_I * pote_value;		//con filtro
 								medida >>= 10;
@@ -483,21 +483,19 @@ int main(void)
 							}
 						}
 					}
-#ifdef WITH_POTE
-					pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
-#endif
 
 					if (OUTPUT_ENABLE)
 						Update_Buck (d);
 					else
 						Update_Buck (0);
 
-					//Update_TIM3_CH2 (Iout_Sense);	//muestro en pata PA7 el sensado de Iout
+#ifdef WITH_POTE
+					pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
+#endif
+#ifdef WITH_1_TO_10
+					pote_value = MAFilter8 (One_Ten_Sense, v_pote_samples);
+#endif
 
-					//pote_value = MAFilter32Circular (One_Ten_Pote, v_pote_samples, p_pote, &pote_sumation);
-					//pote_value = MAFilter32 (One_Ten_Pote, v_pote_samples);
-					//pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
-					//pote_value = MAFilter32Pote (One_Ten_Pote);
 					seq_ready = 0;
 					LEDV_OFF;
 
@@ -588,7 +586,7 @@ int main(void)
 								//undersampling = 10;		//funciona bien pero con saltos
 								undersampling = 20;		//funciona bien pero con saltos
 
-#ifdef WITH_POTE
+#if ((defined WITH_POTE) || (defined WITH_1_TO_10))
 								//con control por pote
 								medida = MAX_I * pote_value;		//con filtro
 								medida >>= 10;
@@ -622,21 +620,19 @@ int main(void)
 							}
 						}
 					}
-#ifdef WITH_POTE
-					pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
-#endif
 
 					if (OUTPUT_ENABLE)
 						Update_Boost (d);
 					else
 						Update_Boost (0);
 
-					//Update_TIM3_CH2 (Iout_Sense);	//muestro en pata PA7 el sensado de Iout
+#ifdef WITH_POTE
+					pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
+#endif
+#ifdef WITH_1_TO_10
+					pote_value = MAFilter8 (One_Ten_Sense, v_pote_samples);
+#endif
 
-					//pote_value = MAFilter32Circular (One_Ten_Pote, v_pote_samples, p_pote, &pote_sumation);
-					//pote_value = MAFilter32 (One_Ten_Pote, v_pote_samples);
-					//pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
-					//pote_value = MAFilter32Pote (One_Ten_Pote);
 					seq_ready = 0;
 					LEDV_OFF;
 
@@ -672,20 +668,7 @@ int main(void)
 					if (!timer_standby)
 					{
 						timer_standby = TT_TO_FREE_ERROR;
-//						if (error_bips == 1)	//estoy en bajo VIN
-//						{
-//							if (Vin_Sense > MIN_VIN)
-//							{
-//
-//							}
-//						}
-//						else if (error_bips == 2)	//estoy en alto VIN
-//						{
-//							if (Vin_Sense < MAX_VIN)
-//							{
-//
-//							}
-//						}
+
 						if ((Vin_Sense < MAX_VIN) && (Vin_Sense > MIN_VIN))
 						{
 							converter_mode = BUCK_MODE;
@@ -842,25 +825,38 @@ void UpdateErrors (void)
 
 		case ERROR_LOW_VIN:
 			error_bips = 1;
+			error_bips_counter = 1;
 			error_state = ERROR_RUN;
 			break;
 
 		case ERROR_HIGH_VIN:
 			error_bips = 2;
+			error_bips_counter = 2;
 			error_state = ERROR_RUN;
 			break;
 
 		case ERROR_WRONG_VIN:
 			error_bips = 3;
+			error_bips_counter = 3;
 			error_state = ERROR_RUN;
 			break;
 
 		case ERROR_RUN:
 			if (!timer_led_error)
 			{
-				LEDR_ON;
-				error_state++;
-				timer_led_error = TIM_BIP_SHORT;
+				if (error_bips_counter)
+				{
+					LEDR_ON;
+					error_bips_counter--;
+					timer_led_error = TIM_BIP_SHORT;
+				}
+				else
+				{
+					error_bips_counter = error_bips;
+					timer_led_error = TIM_BIP_LONG;
+				}
+
+				error_state = ERROR_RUN_A;
 			}
 			break;
 
@@ -868,25 +864,8 @@ void UpdateErrors (void)
 			if (!timer_led_error)
 			{
 				LEDR_OFF;
-				if (error_bips_counter)
-				{
-					error_bips_counter--;
-					error_state--;
-					timer_led_error = TIM_BIP_SHORT;
-				}
-				else
-				{
-					error_state++;
-					timer_led_error = TIM_BIP_LONG;
-				}
-			}
-			break;
-
-		case ERROR_RUN_B:
-			if (!timer_led_error)
-			{
 				error_state = ERROR_RUN;
-				error_bips_counter = error_bips;
+				timer_led_error = TIM_BIP_SHORT;
 			}
 			break;
 
