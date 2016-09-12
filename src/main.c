@@ -136,6 +136,10 @@ volatile int acc = 0;
 #define KII	16			// .125
 #define KDI	0			// 0
 
+//todos se dividen por 128
+#define KPI_DITHER	128			// 1
+#define KII_DITHER	128			// 1
+#define KDI_DITHER	0			// 0
 
 #define K1V (KPV + KIV + KDV)
 #define K2V (KPV + KDV + KDV)
@@ -145,6 +149,9 @@ volatile int acc = 0;
 #define K2I (KPI + KDI + KDI)
 #define K3I (KDI)
 
+#define K1I_DITHER (KPI_DITHER + KII_DITHER + KDI_DITHER)
+#define K2I_DITHER (KPI_DITHER + KDI_DITHER + KDI_DITHER)
+#define K3I_DITHER (KDI_DITHER)
 
 
 #ifdef BOOST_CONVENCIONAL
@@ -194,11 +201,14 @@ volatile int acc = 0;
 #define DMAX	800				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
 #define DMAX_BUCK	950				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
 
-#define MAX_I	297
+#define DMAX_DITHER		3200	//DMAX x 4
+
+#define MAX_I	297				//700mA con 2 de .33//
 //#define MAX_I	153				//cuando uso Iot_Sense / 2
 //								//Iout_Sense mide = Iout * 0.33
 //								//Iout = 3.3 * MAX_I / (0.33 * 1024)
 
+#define MAX_I_DITHER	1188	//MAX_I x 4
 
 #define MAX_I_MOSFET	193		//modificacion 13-07-16
 								//I_Sense arriba de 620mV empieza a saturar la bobina
@@ -210,9 +220,9 @@ volatile int acc = 0;
 
 #define CHANGE_MODE_THRESH	100
 
-#define VBUCK_THRESH		(SP_VOUT - 70)		//10% abajo de la corriente de salida
+#define VBUCK_THRESH		(SP_VOUT - 70)		//10% abajo de la tension de salida
 
-#define IBUCK_THRESH		(MAX_I - 97)		//10% abajo de la corriente de salida
+#define IBUCK_THRESH		(MAX_I - 97)		//20% abajo de la corriente de salida
 #define IBOOST_THRESH		(MAX_I + 30)		//10% arriba de la corrinete de salida
 #define DMIN_THRESH		100
 
@@ -222,6 +232,7 @@ volatile int acc = 0;
 void TimingDelay_Decrement(void);
 void Update_PWM (unsigned short);
 void UpdateErrors (void);
+short TranslateDither (short, unsigned char);
 
 // ------- del DMX -------
 extern void EXTI4_15_IRQHandler(void);
@@ -260,11 +271,10 @@ int main(void)
 #if ((defined WITH_POTE) || (defined WITH_1_TO_10))
 	unsigned short pote_value;
 #endif
-//	unsigned char last_main_overload  = 0;
-//	unsigned char last_function;
-//	unsigned char last_program, last_program_deep;
-//	unsigned short last_channel;
-//	unsigned short current_temp = 0;
+
+	//PARA PRUEBAS DE DITHER
+	unsigned char dither_state = 0;
+	short dither = 0;
 
 	//!< At this stage the microcontroller clock setting is already configured,
     //   this is done through SystemInit() function which is called from startup
@@ -368,14 +378,14 @@ int main(void)
 	MOSFET_ON;
 #endif
 #ifdef BUCK_BOOST_WITH_CONTROL
-//	converter_mode = BOOST_MODE;
-//	Update_Buck(1024);
-//	Update_Boost(0);
-
-	converter_mode = BUCK_MODE;
-	//Update_Buck(100);
+	converter_mode = BOOST_MODE;
+	Update_Buck(1024);
 	Update_Boost(0);
-	error_counter = 0;
+
+//	converter_mode = BUCK_MODE;
+//	//Update_Buck(100);
+//	Update_Boost(0);
+//	error_counter = 0;
 #endif
 
 	//--- Main loop ---//
@@ -579,47 +589,76 @@ int main(void)
 							//LAZO I
 							LEDV_ON;
 
-							if (undersampling)
-								undersampling--;
-							else
+							switch (dither_state)
 							{
-								//undersampling = 10;		//funciona bien pero con saltos
-								undersampling = 20;		//funciona bien pero con saltos
+								case 0:
+									//empieza o termina la secuencia de dither
+									if (undersampling)
+									{
+										undersampling--;
+									}
+									else
+									{
+										undersampling = 5;		//serian 5 * 4 = 20
 
 #if ((defined WITH_POTE) || (defined WITH_1_TO_10))
-								//con control por pote
-								medida = MAX_I * pote_value;		//con filtro
-								medida >>= 10;
-								error = medida - Iout_Sense;	//340 es 1V en adc
-#endif
-#ifdef WITHOUT_POTE
-								error = MAX_I - Iout_Sense;	//340 es 1V en adc
+										//con control por pote
+										medida = MAX_I_DITHER * pote_value;		//con filtro
+										medida >>= 10;
+										error = medida - Iout_Sense;	//340 es 1V en adc
 #endif
 
+										error = MAX_I_DITHER - Iout_Sense;	//340 es 1V en adc
 
-								acc = K1I * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
-								val_k1 = acc >> 7;
+										acc = K1I_DITHER * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
+										val_k1 = acc >> 7;
 
-								//K2
-								acc = K2I * error_z1;		//K2 = no llega pruebo con 1
-								val_k2 = acc >> 7;			//si es mas grande que K1 + K3 no lo deja arrancar
+										//K2
+										acc = K2I_DITHER * error_z1;		//K2 = no llega pruebo con 1
+										val_k2 = acc >> 7;			//si es mas grande que K1 + K3 no lo deja arrancar
 
-								//K3
-								acc = K3I * error_z2;		//K3 = 0.4
-								val_k3 = acc >> 7;
+										//K3
+										acc = K3I_DITHER * error_z2;		//K3 = 0.4
+										val_k3 = acc >> 7;
 
-								d = d + val_k1 - val_k2 + val_k3;
-								if (d < 0)
-									d = 0;
-								else if (d > DMAX)		//no me preocupo si estoy con folding
-									d = DMAX;		//porque d deberia ser chico
+										dither = dither + val_k1 - val_k2 + val_k3;
+										if (dither < 0)
+											dither = 0;
+										else if (dither > DMAX_DITHER)		//no me preocupo si estoy con folding
+											dither = DMAX_DITHER;		//porque d deberia ser chico
 
-								//Update variables PID
-								error_z2 = error_z1;
-								error_z1 = error;
+										//Update variables PID
+										error_z2 = error_z1;
+										error_z1 = error;
+									}
+
+									d = TranslateDither (dither, 0);
+									dither_state++;
+									break;
+
+								case 1:
+									d = TranslateDither (dither, 1);
+									dither_state++;
+									break;
+
+								case 2:
+									d = TranslateDither (dither, 2);
+									dither_state++;
+									break;
+
+								case 3:
+									d = TranslateDither (dither, 3);
+									dither_state = 0;
+
+									break;
+
+								default:
+									dither_state = 0;
+									break;
 							}
-						}
-					}
+
+						}	//fin lazo I
+					}	//fin verificar muestra boost mode
 
 					if (OUTPUT_ENABLE)
 						Update_Boost (d);
@@ -637,29 +676,28 @@ int main(void)
 					LEDV_OFF;
 
 					//reviso si necesito un cambio desde modo BOOST
-					medida = Vout_Sense * 120;
-					medida >>= 7;
-//					if ((Vin_Sense >= Vout_Sense) &&
-					if ((Vin_Sense >= medida) &&
-							(d < DMIN_THRESH)	&&
-							(Iout_Sense > IBOOST_THRESH))
-					{
-						if (change_mode_counter < CHANGE_MODE_THRESH)
-							change_mode_counter++;
-						else
-						{
-							change_mode_counter = 0;
-							converter_mode = BUCK_MODE;
-							Update_Buck(0);
-							Update_Boost(0);
-							d = 0;
-							error_z1 = 0;
-							error_z2 = 0;
-							undersampling = 0;
-						}
-					}
-					else if (change_mode_counter)
-						change_mode_counter--;
+//					medida = Vout_Sense * 120;
+//					medida >>= 7;
+//					if ((Vin_Sense >= medida) &&
+//							(d < DMIN_THRESH)	&&
+//							(Iout_Sense > IBOOST_THRESH))
+//					{
+//						if (change_mode_counter < CHANGE_MODE_THRESH)
+//							change_mode_counter++;
+//						else
+//						{
+//							change_mode_counter = 0;
+//							converter_mode = BUCK_MODE;
+//							Update_Buck(0);
+//							Update_Boost(0);
+//							d = 0;
+//							error_z1 = 0;
+//							error_z2 = 0;
+//							undersampling = 0;
+//						}
+//					}
+//					else if (change_mode_counter)
+//						change_mode_counter--;
 
 
 					break;
@@ -816,6 +854,44 @@ int main(void)
 
 
 //--- End of Main ---//
+
+unsigned char first_pattern [4] = {0x01, 0x01, 0x01, 0x01};
+unsigned char second_pattern [4] = {0x01, 0x01, 0x01, 0x00};
+unsigned char third_pattern [4] = {0x01, 0x00, 0x01, 0x00};
+unsigned char fourth_pattern [4] = {0x00, 0x00, 0x00, 0x01};
+
+//recibe un numero de 12 bits y un estado de 4 posibilidades
+//devuelve un numero de 10bits
+//con los ultimos 2 bits elijo el patron y el state es el que lo recorre
+short TranslateDither (short duty_dither, unsigned char state)
+{
+	unsigned short duty = 0;
+	unsigned short dith = 0;
+
+	dith = duty_dither & 0x0003;
+
+	if (dith == 0x0003)
+	{
+		duty = first_pattern[state];
+	}
+	else if (dith == 0x0002)
+	{
+		duty = second_pattern[state];
+	}
+	else if (dith == 0x0001)
+	{
+		duty = third_pattern[state];
+	}
+	else
+	{
+		duty = fourth_pattern[state];
+	}
+
+	duty += duty_dither >> 2;
+
+	return duty;
+}
+
 void UpdateErrors (void)
 {
 	switch (error_state)
