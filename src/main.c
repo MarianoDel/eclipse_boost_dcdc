@@ -669,10 +669,12 @@ int main(void)
 						Update_Boost (0);
 
 #ifdef WITH_POTE
-					pote_value = MAFilter32Circular (One_Ten_Pote, v_pote_samples, &v_pote_index, &pote_sumation);
+					pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
+					//pote_value = MAFilter32Circular (One_Ten_Pote, v_pote_samples, &v_pote_index, &pote_sumation);
 #endif
 #ifdef WITH_1_TO_10
-					pote_value = MAFilter32Circular (One_Ten_Sense, v_pote_samples, &v_pote_index, &pote_sumation);
+					pote_value = MAFilter8 (One_Ten_Sense, v_pote_samples);
+					//pote_value = MAFilter32Circular (One_Ten_Sense, v_pote_samples, &v_pote_index, &pote_sumation);
 #endif
 
 					seq_ready = 0;
