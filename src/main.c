@@ -72,7 +72,7 @@ volatile unsigned short adc_ch[7];
 #if ((defined WITH_POTE) || (defined WITH_1_TO_10))
 unsigned short v_pote_samples [32];
 unsigned int pote_sumation = 0;		//circular 32
-unsigned char v_pote_index;
+unsigned char v_pote_index = 0;
 #endif
 
 
@@ -628,9 +628,11 @@ int main(void)
 
 #ifdef WITH_POTE
 					pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
+					//pote_value = MAFilter32Circular (One_Ten_Pote, v_pote_samples, &v_pote_index, &pote_sumation);
 #endif
 #ifdef WITH_1_TO_10
 					pote_value = MAFilter8 (One_Ten_Sense, v_pote_samples);
+					//pote_value = MAFilter32Circular (One_Ten_Sense, v_pote_samples, &v_pote_index, &pote_sumation);
 #endif
 
 					seq_ready = 0;

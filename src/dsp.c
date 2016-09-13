@@ -105,7 +105,7 @@ unsigned short MAFilter32Circular (unsigned short new_sample, unsigned short * p
 
 	//guardo el nuevo sample y actualizo el puntero
 	*p_vector = new_sample;
-	if (p_vector < (p_vec_samples + 32))
+	if (p_vector < (p_vec_samples + 31))
 	{
 		p_vector++;
 		*index += 1;
