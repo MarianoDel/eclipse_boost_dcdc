@@ -194,7 +194,8 @@ volatile int acc = 0;
 #define DMAX	800				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
 #define DMAX_BUCK	950				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
 
-#define MAX_I	297
+//#define MAX_I	297				//700mA con 2 x 0.33//
+#define MAX_I	596				//700mA con 1 x 0.33
 //#define MAX_I	153				//cuando uso Iot_Sense / 2
 //								//Iout_Sense mide = Iout * 0.33
 //								//Iout = 3.3 * MAX_I / (0.33 * 1024)
