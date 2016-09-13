@@ -208,7 +208,7 @@ volatile int acc = 0;
 //								//Iout_Sense mide = Iout * 0.33
 //								//Iout = 3.3 * MAX_I / (0.33 * 1024)
 
-#define MAX_I_DITHER	1188	//MAX_I x 4
+#define MAX_I_DITHER	MAX_I	//MAX_I x 4
 
 #define MAX_I_MOSFET	193		//modificacion 13-07-16
 								//I_Sense arriba de 620mV empieza a saturar la bobina
@@ -535,6 +535,7 @@ int main(void)
 
 				case BOOST_MODE:
 					//reviso el tope de corriente del mosfet
+					//LEDV_ON;
 					if (Boost_Sense > MAX_I_MOSFET_BOOST)
 					{
 						//corto el ciclo
@@ -607,9 +608,9 @@ int main(void)
 										medida >>= 10;
 										error = medida - Iout_Sense;	//340 es 1V en adc
 #endif
-
+#ifdef WITHOU_POTE
 										error = MAX_I_DITHER - Iout_Sense;	//340 es 1V en adc
-
+#endif
 										acc = K1I_DITHER * error;		//5500 / 32768 = 0.167 errores de hasta 6 puntos
 										val_k1 = acc >> 7;
 
@@ -655,9 +656,11 @@ int main(void)
 								default:
 									dither_state = 0;
 									break;
-							}
+
+							}	//fin switch muestra
 
 						}	//fin lazo I
+
 					}	//fin verificar muestra boost mode
 
 					if (OUTPUT_ENABLE)
@@ -666,10 +669,10 @@ int main(void)
 						Update_Boost (0);
 
 #ifdef WITH_POTE
-					pote_value = MAFilter8 (One_Ten_Pote, v_pote_samples);
+					pote_value = MAFilter32Circular (One_Ten_Pote, v_pote_samples, &v_pote_index, &pote_sumation);
 #endif
 #ifdef WITH_1_TO_10
-					pote_value = MAFilter8 (One_Ten_Sense, v_pote_samples);
+					pote_value = MAFilter32Circular (One_Ten_Sense, v_pote_samples, &v_pote_index, &pote_sumation);
 #endif
 
 					seq_ready = 0;
