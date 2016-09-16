@@ -503,7 +503,7 @@ int main(void)
 					//reviso si necesito un cambio de modo desde BUCK
 					if ((Vin_Sense <= VBUCK_THRESH) &&
 							(d == DMAX_BUCK)	&&
-							(Iout_Sense < IBUCK_THRESH))
+							(Iout_Sense < IBUCK_THRESH))	//TODO:revisar que pasa cuando no tengo toda la I
 					{
 						if (change_mode_counter < CHANGE_MODE_THRESH)
 							change_mode_counter++;
@@ -645,7 +645,7 @@ int main(void)
 //					if ((Vin_Sense >= Vout_Sense) &&
 					if ((Vin_Sense >= medida) &&
 							(d < DMIN_THRESH)	&&
-							(Iout_Sense > IBOOST_THRESH))
+							(Iout_Sense > IBOOST_THRESH))	//TODO:revisar que pasa cuando no tengo toda la I
 					{
 						if (change_mode_counter < CHANGE_MODE_THRESH)
 							change_mode_counter++;
