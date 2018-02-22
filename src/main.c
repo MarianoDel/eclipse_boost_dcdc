@@ -188,8 +188,9 @@ volatile int acc = 0;
 #endif
 
 #ifdef BUCK_BOOST_WITH_CONTROL
-#define SP_VOUT		638			//566 23.35V
+#define SP_VOUT		859			//566 23.35V
 								//638 26V
+								//859 36V aprox
 
 #define DMAX	800				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
 #define DMAX_BUCK	950				//maximo D permitido	Dmax = 1 - Vinmin / Vout@1024adc
@@ -206,8 +207,9 @@ volatile int acc = 0;
 #define MAX_I_MOSFET_BOOST		MAX_I_MOSFET
 #define MAX_I_MOSFET_BUCK		MAX_I_MOSFET
 
-#define MAX_VIN			953		//40V en entrada
-#define MIN_VIN			233		//10V en entrada
+#define MAX_VIN					953		//40V en entrada
+#define MIN_VIN_CONNECT			233		//10V en entrada
+#define MIN_VIN_DISCONNECT		200		//10V en entrada
 
 #define CHANGE_MODE_THRESH	100
 
@@ -531,13 +533,13 @@ int main(void)
 						//corto el ciclo
 						d = 0;
 					}
-					else if (Vin_Sense < MIN_VIN)
+					else if (Vin_Sense < MIN_VIN_DISCONNECT)
 					{
-						//corto el ciclo
-						d = 0;
 						error_counter++;
 						if (error_counter > ERR_THRESH_MIN_VIN)
 						{
+							//corto el ciclo
+							d = 0;
 							converter_mode = ERROR_MODE;
 							timer_standby = TT_TO_FREE_ERROR;		//5 segundos de error
 							error_state = ERROR_LOW_VIN;
@@ -672,7 +674,7 @@ int main(void)
 					{
 						timer_standby = TT_TO_FREE_ERROR;
 
-						if ((Vin_Sense < MAX_VIN) && (Vin_Sense > MIN_VIN))
+						if ((Vin_Sense < MAX_VIN) && (Vin_Sense > MIN_VIN_CONNECT))
 						{
 							converter_mode = BUCK_MODE;
 							error_counter = 0;
